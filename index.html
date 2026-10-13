@@ -1,0 +1,410 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Click by Click Secure</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&display=swap">
+<style>
+/* Layout: one calm column; two setup questions, then topics, then one step at a time */
+:root{
+  --bg:#f2f5f9; --surface:#ffffff; --line:#d5dde8; --fg:#13213a; --muted:#52627a;
+  --accent:#167a55; --accent-soft:#dff3ea; --ask:#9a5b00; --ask-soft:#fdf0d8;
+  --calm:#2b5ea7; --calm-soft:#e3ecf9;
+  --display:"Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --body:"Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0d1828; --surface:#14233a; --line:#25385a; --fg:#e8eef7; --muted:#9fb0c8;
+  --accent:#4fd39a; --accent-soft:#163a33; --ask:#f2b84b; --ask-soft:#3a2f17;
+  --calm:#8db4f0; --calm-soft:#1b2d4c; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0d1828; --surface:#14233a; --line:#25385a; --fg:#e8eef7; --muted:#9fb0c8;
+  --accent:#4fd39a; --accent-soft:#163a33; --ask:#f2b84b; --ask-soft:#3a2f17;
+  --calm:#8db4f0; --calm-soft:#1b2d4c; color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:17px/1.6 var(--body);padding-inline:16px;padding-block:28px 48px}
+.wrap{max-width:720px;margin:0 auto;display:flex;flex-direction:column;gap:22px}
+h1,h2,h3{font-family:var(--display);line-height:1.15;text-wrap:balance;margin:0}
+h1{font-size:clamp(30px,6vw,42px);font-weight:800}
+h2{font-size:26px;font-weight:800}
+h3{font-size:19px;font-weight:600}
+p{margin:0}
+.muted{color:var(--muted)}
+.eyebrow{font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);font-weight:700}
+header{display:flex;flex-direction:column;gap:10px}
+.proto{font-size:13px;color:var(--muted);border:1px dashed var(--line);border-radius:8px;padding:6px 10px;align-self:flex-start}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible{outline:3px solid var(--calm);outline-offset:2px}
+.qnum{font-size:14px;color:var(--muted);font-weight:700}
+.choices{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
+.choice{display:flex;flex-direction:column;gap:8px;text-align:left;background:var(--surface);border:2px solid var(--line);border-radius:16px;padding:20px}
+.choice:hover{border-color:var(--accent)}
+.choice .big{font-family:var(--display);font-size:22px;font-weight:800}
+.hint{background:var(--calm-soft);border-radius:12px;padding:12px 14px;font-size:15px}
+.hint b{color:var(--calm)}
+.back{background:none;border:none;color:var(--muted);padding:0;align-self:flex-start}
+.settings{display:flex;flex-direction:column;gap:14px;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px 18px;font-size:15px}
+.setting{display:flex;flex-direction:column;gap:6px}
+.seg{display:flex;flex-wrap:wrap;gap:6px;background:var(--bg);border-radius:12px;padding:4px;align-self:flex-start;max-width:100%}
+.seg button{border:none;background:none;border-radius:9px;padding:9px 16px;font-weight:700;color:var(--muted)}
+.seg button.on{background:var(--accent);color:var(--bg)}
+.doors{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
+.door{display:flex;flex-direction:column;gap:6px;text-align:left;border-radius:16px;padding:18px 20px;border:2px solid}
+.door .big{font-family:var(--display);font-size:21px;font-weight:800}
+.door.setup{background:var(--accent-soft);border-color:var(--accent)}
+.door.setup .big{color:var(--accent)}
+.door.panic{background:var(--calm-soft);border-color:var(--calm)}
+.door.panic .big{color:var(--calm)}
+.group{display:flex;flex-direction:column;gap:12px}
+.group-label{font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:700}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.topic{display:flex;flex-direction:column;gap:6px;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;min-height:118px}
+.topic:hover{border-color:var(--accent)}
+.topic .meta{margin-top:auto;font-size:14px;color:var(--muted)}
+.topic .done{color:var(--accent);font-weight:700}
+.topic[disabled]{opacity:.55;cursor:default}
+.legend{display:flex;flex-wrap:wrap;gap:10px;font-size:14px}
+.tag{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:3px 11px;font-size:14px;font-weight:700;align-self:flex-start}
+.tag.safe{background:var(--accent-soft);color:var(--accent)}
+.tag.ask{background:var(--ask-soft);color:var(--ask)}
+.tag.care{background:var(--calm-soft);color:var(--calm)}
+.dot{width:8px;height:8px;border-radius:50%;background:currentColor}
+.bar{height:8px;background:var(--line);border-radius:999px;overflow:hidden}
+.bar span{display:block;height:100%;background:var(--accent);transition:width .3s}
+.step{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:22px;display:flex;flex-direction:column;gap:14px}
+.box{border-radius:12px;padding:12px 14px;font-size:16px}
+.box.why{background:var(--bg)}
+.box.oops{background:var(--calm-soft)}
+.box.send{background:var(--ask-soft)}
+.box b{display:block;font-size:13px;letter-spacing:.06em;text-transform:uppercase;margin-bottom:4px}
+.box pre{white-space:pre-wrap;font:15px/1.5 var(--body);margin:0 0 10px}
+.howto{margin:0;padding-left:22px;display:flex;flex-direction:column;gap:6px}
+.nav{display:flex;gap:10px;flex-wrap:wrap}
+.btn{border-radius:12px;padding:11px 18px;border:1px solid var(--line);background:var(--surface)}
+.btn.small{padding:7px 12px;font-size:15px}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--bg);font-weight:700}
+.list{display:flex;flex-direction:column;gap:10px;padding:0;margin:0;list-style:none}
+.list li{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:6px}
+footer{font-size:13px;color:var(--muted);text-align:center}
+@media (prefers-reduced-motion:reduce){.bar span{transition:none}}
+</style>
+
+</head>
+<body>
+<div class="wrap" id="app"></div>
+
+<script>
+/* Any field can be plain text, or {ms:..., g:...} when Microsoft 365 and Google Workspace differ.
+   tag = label when they HAVE IT help. msg = request to send IT. diy = detailed steps when they do NOT. */
+const TOPICS = [
+ {id:"start", title:"Get set up the right way", blurb:"The first six things to do, in order.", steps:[
+  {t:"Turn on MFA for everyone", tag:"ask",
+   d:"MFA means a second check, like a code on your phone, when someone signs in. Ask your IT provider to turn it on for every account.",
+   msg:"Hi, we would like MFA turned on for every account in our organization, using an authenticator app instead of text messages. Can you set that up and let us know when staff should expect to register? Thank you.",
+   diy:{ms:["Tell your staff first: next week everyone will set up the Microsoft Authenticator app on their phone.","Go to entra.microsoft.com and sign in with your admin account.","Open Identity, then Overview, then Properties.","Click Manage security defaults, set it to Enabled, and click Save.","The next time each person signs in, Microsoft will walk them through setting up the app."],
+        g:["Tell your staff first: next week everyone will turn on 2 Step Verification.","Go to admin.google.com and sign in with your admin account.","Open Security, then Authentication, then 2 Step Verification.","Check Allow users to turn on 2 Step Verification and click Save.","Ask everyone to go to myaccount.google.com, open Security, and turn on 2 Step Verification.","Once everyone is set up, come back to the same page and turn Enforcement on."]},
+   why:"Stolen passwords are one of the most common ways attackers get in. MFA stops most of those attempts.",
+   oops:{ms:"Security defaults can be turned off again on the same screen. Staff get time to finish setup before they are required to.",
+         g:"Allowing 2 Step Verification first gives everyone time to set it up before you turn on Enforcement."}},
+  {t:"Make a list of every account", tag:"safe",
+   d:"Get a list of everyone who has an account and compare it to your current staff and volunteers.",
+   diy:{ms:["In admin.microsoft.com, open Users, then Active users.","Click Export users to download the list.","Compare it to your staff and volunteer list.","For anyone who no longer works with you, follow the Someone left our team guide."],
+        g:["In admin.google.com, open Directory, then Users.","Click Download users to save the list.","Compare it to your staff and volunteer list.","For anyone who no longer works with you, follow the Someone left our team guide."]},
+   why:"Old accounts nobody watches are an easy way in.",
+   oops:"Downloading a list only reads information. Nothing changes."},
+  {t:"Keep admin accounts to a small number", tag:"ask",
+   d:"Admin accounts can change everything. Ask your IT provider how many you have and who uses them.",
+   msg:{ms:"Hi, can you tell us how many global admin accounts we have and who has them? We would like to keep it to two, and make sure staff use normal accounts for everyday work. Thank you.",
+        g:"Hi, can you tell us how many super admin accounts we have and who has them? We would like to keep it to two, and make sure staff use normal accounts for everyday work. Thank you."},
+   diy:{ms:["In admin.microsoft.com, open Roles, then Role assignments.","Click Global Administrator to see who has it.","Keep two trusted people as admins so one person getting locked out does not lock everyone out.","Remove the role from anyone else. Their normal account stays the same."],
+        g:["In admin.google.com, open Account, then Admin roles.","Click Super Admin, then Admins, to see who has it.","Keep two trusted people as super admins so one person getting locked out does not lock everyone out.","Remove the role from anyone else. Their normal account stays the same."]},
+   why:"If an attacker gets an admin account, they can take over the whole organization.",
+   oops:"Removing an admin role does not delete the person's account or files."},
+  {t:"Turn on automatic updates", tag:"safe",
+   d:"Make sure every computer and phone installs updates on its own.",
+   diy:["On each Windows computer, open Settings, then Windows Update, and click Check for updates.","On a Mac, open System Settings, then General, then Software Update.","Restart when it asks. Updates only finish after a restart.","On phones, open settings and turn on automatic updates.","Keep web browsers updated too. Most update themselves after a restart."],
+   why:"Updates fix security holes attackers already know about.",
+   oops:"Updates are made to be safe. Save your work before restarting and you will be fine."},
+  {t:"Make sure your files are backed up", tag:"safe",
+   d:"Follow the Are our files backed up? guide to check where your files live and whether you can get them back.",
+   diy:["Follow the Are our files backed up? guide.","It walks you through where files live, the difference between sync and backup, and how to test a restore."],
+   why:"Backups are what let you recover from ransomware or a big mistake.",
+   oops:"Checking on backups never changes your files."},
+  {t:"Write down who to call", tag:"safe",
+   d:"Make a short contact list for emergencies and keep a printed copy away from the computer.",
+   diy:["Write down: your cyber insurance hotline if you have one, your bank's fraud line, and your website host's support number.","Add the FBI's reporting site, ic3.gov, for money loss or data theft.","Print it and keep it somewhere you can reach even if computers are down."],
+   why:"During an incident, nobody wants to search for phone numbers.",
+   oops:"A list on paper cannot break anything."}
+ ]},
+ {id:"left", title:"Someone left our team", blurb:"Close their access the same day.", steps:[
+  {t:{ms:"Block their sign in", g:"Suspend their account"}, tag:"safe",
+   d:{ms:"In the Microsoft 365 admin center, find the person under Active users and choose Block sign in.",
+      g:"In the Google Admin console, find the person under Users and choose Suspend user."},
+   diy:{ms:["Go to admin.microsoft.com and sign in with your admin account.","Click Users, then Active users.","Click the person's name.","Click Block sign in, check the box, and click Save.","In the same panel, click Sign out of all sessions."],
+        g:["Go to admin.google.com and sign in with your admin account.","Click Directory, then Users.","Click the person's name.","Click Suspend user and confirm.","On the same page, open Security, then Sign in cookies, and click Reset to sign them out everywhere."]},
+   why:"Former staff accounts are one of the easiest ways in for an attacker.",
+   oops:{ms:"Blocking sign in does not delete anything. You can turn it back on with one click.",
+         g:"Suspending does not delete anything. You can reactivate the account with one click."}},
+  {t:"Change shared passwords they knew", tag:"safe",
+   d:"Think about shared logins like the donation platform, social media, or the office WiFi. Change each one.",
+   diy:["Make a list of every shared login they used: donation site, bank, social media, WiFi.","Change one password at a time.","Save each new password in a password manager before you log out.","Let the rest of the team know the new passwords are in the password manager."],
+   why:"Shared passwords leave with the person even after their account is blocked.",
+   oops:"Save the new password first so nobody gets locked out."},
+  {t:"Collect their laptop and phone", tag:"safe",
+   d:"Get back every device they used for work and write down the date you received it.",
+   diy:["Ask for every work device back: laptop, phone, tablet, chargers.","Write down each device and the date you got it back.","Store them somewhere locked until the last step."],
+   why:"A device that leaves can still hold donor and staff data.",
+   oops:"Do not wipe it yet. Their files may still be needed."},
+  {t:"Save their email and files", tag:"ask",
+   d:"Ask your IT provider to give their manager access to the email and files before anything is removed.",
+   msg:{ms:"Hi, [Name] left on [date]. Their sign in is blocked. Can you convert their mailbox to a shared mailbox, give [manager] access to it, and give [manager] access to their OneDrive files? Please confirm when done. Thank you.",
+        g:"Hi, [Name] left on [date]. Their account is suspended. Can you transfer their Google Drive files to [manager] and make sure new emails to their address reach [manager]? Please confirm when done. Thank you."},
+   diy:{ms:["In admin.microsoft.com, open Active users and click the person's name.","Open the Mail tab and click Convert to shared mailbox. This keeps their email without needing a paid license.","Go to Teams & groups, then Shared mailboxes, open their mailbox, and add the manager as a member.","Back on the person's panel, open the OneDrive tab and click Create link to files. Send that link to the manager."],
+        g:["Decide who should get their files and email. Usually this is their manager.","In admin.google.com, open Apps, then Google Workspace, then Drive and Docs.","Click Transfer ownership, enter the person who left and the manager, and click Transfer files.","Keep the account suspended for now. You will handle their email address in the last step."]},
+   why:"Donors and partners may still email them, and their files may be needed later.",
+   oops:{ms:"Converting to a shared mailbox keeps every email. Nothing is deleted.",
+         g:"Transferring files gives the manager ownership. The files are not deleted."}},
+  {t:{ms:"Remove the license and wipe the device after 30 days", g:"Delete the account and wipe the device after 30 days"}, tag:"ask",
+   d:"After 30 days, ask your IT provider to close out the account and wipe the device once nothing else is needed.",
+   msg:{ms:"Hi, it has been 30 days since [Name] left. Can you remove their Microsoft 365 license and wipe their laptop [device name] so we can reuse it? Thank you.",
+        g:"Hi, it has been 30 days since [Name] left. Can you delete their Google Workspace account, add their address as an alternate email for [manager], and wipe their laptop [device name] so we can reuse it? Thank you."},
+   diy:{ms:["Put a reminder on your calendar for 30 days after they left.","In admin.microsoft.com, open the person, go to Licenses and apps, uncheck the license, and click Save.","On the laptop, open Settings, then System, then Recovery.","Click Reset PC, choose Remove everything, and follow the prompts.","Write down the date the device was wiped."],
+        g:["Put a reminder on your calendar for 30 days after they left.","In admin.google.com, open Directory, then Users, click the person, and click Delete user. If Google offers to transfer their data, choose the manager.","Open the manager's account, find Alternate emails, and add the old address so new emails reach the manager.","On a Windows laptop, open Settings, then System, then Recovery, click Reset PC, and choose Remove everything. On a Chromebook, use Powerwash in Settings.","Write down the date the device was wiped."]},
+   why:"Unused accounts cost money and forgotten accounts become risks.",
+   oops:"Waiting 30 days gives you time to catch anything you missed."}
+ ]},
+ {id:"email", title:"I got a weird email", blurb:"What to do before and after you click.", steps:[
+  {t:"Do not click or download anything", tag:"safe",
+   d:"Leave the links and attachments alone, even if it looks like it came from someone you know.",
+   diy:["Do not click links or open attachments.","Hover your mouse over a link to see where it goes without clicking.","Check the sender's email address, not just their name."],
+   why:"One click on a fake login page can hand over your password.",
+   oops:"If you already clicked, skip to step 4. Acting fast matters more than anything else."},
+  {t:"Do not reply or forward it to coworkers", tag:"safe",
+   d:"Replying tells the sender your address works. Forwarding spreads it.",
+   diy:["Do not reply, even to say stop.","If you want a coworker's opinion, show them your screen or send a screenshot instead of forwarding."],
+   why:"Scammers often send the same email to the whole office.",
+   oops:"Nothing bad happens if you leave it alone while you decide."},
+  {t:"Report it", tag:"safe",
+   d:{ms:"Use the Report button in Outlook, or send a screenshot to whoever handles IT.",
+      g:"Use Report phishing in Gmail, or send a screenshot to whoever handles IT."},
+   diy:{ms:["In Outlook, select the email and click Report, then Report phishing.","Let your coworkers know a suspicious email is going around so they watch for it.","Delete it after you report it."],
+        g:["In Gmail, open the email, click the three dots in the top right, and choose Report phishing.","Let your coworkers know a suspicious email is going around so they watch for it.","Delete it after you report it."]},
+   why:"Reporting helps remove it and warns others.",
+   oops:"Reporting a safe email is fine. Nobody will be upset that you checked."},
+  {t:"If you clicked or typed your password, act now", tag:"ask",
+   d:"Call your IT provider right away and change your password from a different device.",
+   msg:"Urgent: I clicked a link in a suspicious email at about [time] and may have entered my password. Can you sign me out of all sessions, check my account for new sign ins and email forwarding rules, and help me reset my password?",
+   diy:{ms:["From a different device, change your password right away.","Ask your Microsoft 365 admin to open your account and click Sign out of all sessions.","Go to mysignins.microsoft.com and check Security info for any sign in method you did not add. Remove it.","In Outlook, open Settings, then Mail, then Rules. Delete any rule you did not create, especially ones that forward or delete email.","Watch for strange emails sent from your account and warn your contacts if you see any."],
+        g:["From a different device, change your password at myaccount.google.com.","Ask your Google admin to open your account, go to Security, then Sign in cookies, and click Reset.","On myaccount.google.com, open Security and check Your devices and your 2 Step Verification methods. Remove anything you do not recognize.","In Gmail, open Settings, then See all settings. Check Filters and Blocked Addresses, and Forwarding and POP/IMAP. Delete anything you did not set up.","Watch for strange emails sent from your account and warn your contacts if you see any."]},
+   why:"Attackers move fast once they have a password. Minutes matter.",
+   oops:"Everyone clicks something eventually. Acting quickly is what protects the organization."},
+  {t:"If it asks for money, call to check", tag:"safe",
+   d:"Call the person at a phone number you already have, not the one in the email.",
+   diy:["Find the person's number from your own records, not from the email.","Call and ask if they sent the request.","Never change bank details or send gift cards based on an email alone."],
+   why:"Fake invoices and changed bank details are a common way nonprofits lose money.",
+   oops:"A legitimate vendor or boss will understand you checking first."}
+ ]},
+ {id:"backup", title:"Are our files backed up?", blurb:"Make sure you can get things back.", steps:[
+  {t:"List where your files live", tag:"safe",
+   d:"Write down every place files are kept: OneDrive, Google Drive, Dropbox, a server in the office, your website.",
+   diy:["Ask each person where they save work files.","Write down every place: OneDrive, Google Drive, Dropbox, USB drives, office computers, your website.","Circle anything that holds donor, client, or money information."],
+   why:"You cannot protect what you do not know about.",
+   oops:"This is just a list. Nothing changes on any system."},
+  {t:"Know that sync is not a backup", tag:"safe",
+   d:{ms:"OneDrive copies changes everywhere. If ransomware locks a file, the locked copy syncs too.",
+      g:"Google Drive copies changes everywhere. If ransomware locks a file, the locked copy syncs too."},
+   diy:{ms:["OneDrive keeps deleted files for about 30 days and lets you roll back your whole OneDrive to an earlier day.","To find it, open OneDrive on the web, click Settings, then Restore your OneDrive.","That helps with small mistakes but is not a full backup."],
+        g:["Google Drive keeps deleted files in Trash for 30 days.","An admin can restore a user's deleted Drive files for a short time after they leave the Trash, from the user's page in admin.google.com.","That helps with small mistakes but is not a full backup."]},
+   why:"Many organizations think they have backups when they only have sync.",
+   oops:"Nothing to change here yet. This step is about knowing the difference."},
+  {t:"Make sure a backup exists and works", tag:"ask",
+   d:"Ask your IT provider when the last backup ran, where it is stored, and when a restore was last tested.",
+   msg:"Hi, can you tell us when our last backup ran, where it is stored, whether it is kept separate from our main systems, and when we last tested restoring a file from it? Thank you.",
+   diy:{ms:["Choose a backup service made for Microsoft 365. Many offer nonprofit pricing.","For files on office computers, use an external drive and unplug it after each backup.","Once a month, try restoring one file to make sure the backup works.","Write down the date of each test."],
+        g:["Choose a backup service made for Google Workspace. Many offer nonprofit pricing.","For files on office computers, use an external drive and unplug it after each backup.","Once a month, try restoring one file to make sure the backup works.","Write down the date of each test."]},
+   why:"A backup nobody has tested might not work when you need it.",
+   oops:"Testing a restore copies a file back. It does not change your original."},
+  {t:"Check your website backup", tag:"ask",
+   d:"Ask whoever manages your website if the site and its database are backed up.",
+   msg:"Hi, is our website and its database backed up? How often, and where is the backup stored?",
+   diy:["Log in to your website host's control panel and look for a section called Backups.","If you use WordPress, a backup plugin can save copies to cloud storage on a schedule.","Download one copy and keep it somewhere outside the website host."],
+   why:"Websites get hacked too, and rebuilding one from scratch is expensive.",
+   oops:"Downloading a backup does not change your website."},
+  {t:"Set a monthly reminder", tag:"safe",
+   d:"Put a 10 minute reminder on your calendar each month to ask if backups are running.",
+   diy:["Put a 10 minute reminder on your calendar each month.","Check that the last backup ran and test restoring one file."],
+   why:"Backups quietly stop working more often than people think.",
+   oops:"A reminder is the safest step there is."}
+ ]},
+ {id:"mfa", title:"Passwords and MFA", soon:true},
+ {id:"admin", title:"Who has admin access?", soon:true},
+ {id:"laptop", title:"Setting up a new laptop", soon:true}
+];
+
+const PANIC = {
+ it:["Stop and take a breath. Do not keep trying fixes.","Write down what you did and about what time.","If a scary message or ransom note appears, do not turn the computer off. Turn off WiFi or unplug the network cable instead.","Call your IT provider and read them what you wrote down.","Mistakes happen to everyone. Telling someone quickly is the right move."],
+ diy:["Stop and take a breath. Do not keep trying fixes.","Write down what you did and about what time.","If a scary message or ransom note appears, do not turn the computer off. Turn off WiFi or unplug the network cable instead.","If you have cyber insurance, call their hotline first. They can send experts to help.","If money was lost or data was stolen, report it to the FBI at ic3.gov.","Mistakes happen to everyone. Acting quickly is the right move."]
+};
+
+let state = {mode:null, plat:null, progress:{}};
+try { Object.assign(state, JSON.parse(localStorage.getItem("safeSteps3") || "{}")); } catch(e) {}
+function save(){ try { localStorage.setItem("safeSteps3", JSON.stringify(state)); } catch(e) {} }
+const key = id => state.mode + ":" + state.plat + ":" + id;
+const pick = v => (v && typeof v === "object" && !Array.isArray(v)) ? v[state.plat] : v;
+const PLAT = {ms:"Microsoft 365", g:"Google Workspace"};
+
+const app = document.getElementById("app");
+const TAGS = {
+ safe:'<span class="tag safe"><span class="dot"></span>Safe to do yourself</span>',
+ ask:'<span class="tag ask"><span class="dot"></span>Send to your IT provider</span>',
+ care:'<span class="tag care"><span class="dot"></span>Take your time on this one</span>'
+};
+const tagFor = s => state.mode === "it" ? TAGS[s.tag] : (s.tag === "ask" ? TAGS.care : TAGS.safe);
+const HEAD = `<span class="eyebrow">For the person who got handed IT</span><h1>Click by Click Secure</h1>`;
+
+function route(){
+  if (!state.mode) return askMode();
+  if (!state.plat) return askPlat();
+  home();
+}
+
+function askMode(){
+  app.innerHTML = `
+  <header>${HEAD}
+    <p class="muted">Small, safe steps for common IT problems. Two quick questions first so the steps fit you.</p>
+    <span class="proto">Prototype for discussion. Example content only.</span>
+  </header>
+  <span class="qnum">Question 1 of 2</span>
+  <h2>Who helps you with IT?</h2>
+  <div class="choices">
+    <button class="choice" data-v="it"><span class="big">We have IT help</span><span class="muted">An IT person, company, or MSP. We will show you what is safe to do yourself and give you messages to send them for the rest.</span></button>
+    <button class="choice" data-v="diy"><span class="big">No, it's just us</span><span class="muted">Nobody handles IT for us. We will walk you through every step yourself, in more detail.</span></button>
+  </div>
+  <footer>© 2026 Catherine Jason</footer>`;
+  app.querySelectorAll(".choice").forEach(b => b.onclick = () => { state.mode = b.dataset.v; save(); route(); });
+}
+
+function askPlat(){
+  app.innerHTML = `
+  <header>${HEAD}</header>
+  <button class="back" id="back">← Back</button>
+  <span class="qnum">Question 2 of 2</span>
+  <h2>Which email system do you use?</h2>
+  <div class="choices">
+    <button class="choice" data-v="ms"><span class="big">Microsoft 365</span><span class="muted">Outlook, Teams, OneDrive, Word, and Excel.</span></button>
+    <button class="choice" data-v="g"><span class="big">Google Workspace</span><span class="muted">Gmail with your work address, Google Drive, Docs, and Sheets.</span></button>
+  </div>
+  <div class="hint"><b>Not sure?</b> Think about where you sign in to check work email. If it is outlook.com or office.com, choose Microsoft 365. If it is Gmail, choose Google Workspace.</div>
+  <footer>© 2026 Catherine Jason</footer>`;
+  document.getElementById("back").onclick = () => { state.mode = null; save(); route(); };
+  app.querySelectorAll(".choice").forEach(b => b.onclick = () => { state.plat = b.dataset.v; save(); route(); });
+}
+
+function seg(name, value, options){
+  return `<div class="seg" role="group" data-name="${name}">${options.map(([v, label]) =>
+    `<button class="${value === v ? "on" : ""}" data-v="${v}" aria-pressed="${value === v}">${label}</button>`).join("")}</div>`;
+}
+
+function startMeta(){
+  const n = TOPICS[0].steps.length, d = state.progress[key("start")] || 0;
+  if (d >= n) return "Done. You set up the basics.";
+  if (d) return `You are on step ${d + 1} of ${n}. Pick up where you left off.`;
+  return "Start here. Six steps, in order, to set up the basics the right way.";
+}
+function cards(ids){
+  return ids.map(id => {
+    const t = TOPICS.find(x => x.id === id);
+    const n = t.steps ? t.steps.length : 0, d = state.progress[key(t.id)] || 0;
+    const meta = t.soon ? "Coming soon" : d >= n ? '<span class="done">Done</span>' : d ? `Step ${d + 1} of ${n}` : `${n} steps`;
+    return `<button class="topic" data-id="${t.id}" ${t.soon ? "disabled" : ""}><h3>${t.title}</h3><span class="muted">${t.soon ? "" : t.blurb}</span><span class="meta">${meta}</span></button>`;
+  }).join("");
+}
+
+function home(){
+  const it = state.mode === "it";
+  app.innerHTML = `
+  <header>${HEAD}</header>
+  <div class="settings">
+    <div class="setting"><span class="group-label">Who helps you with IT?</span>${seg("mode", state.mode, [["it","We have IT help"],["diy","No, it's just us"]])}</div>
+    <div class="setting"><span class="group-label">Which email system?</span>${seg("plat", state.plat, [["ms","Microsoft 365"],["g","Google Workspace"]])}</div>
+    <span class="muted">${it ? "You will see what is safe to do yourself and messages to send your IT provider." : "You will get detailed steps to do everything yourself."} Steps are written for ${PLAT[state.plat]}.</span>
+  </div>
+  <div class="doors">
+    <button class="door setup" id="setupBtn"><span class="big">Not sure where to start?</span><span class="muted">${startMeta()}</span></button>
+    <button class="door panic" id="panicBtn"><span class="big">I think I broke something</span><span class="muted">Here is what to do right now</span></button>
+  </div>
+  <div class="legend">${it ? TAGS.safe + TAGS.ask : TAGS.safe + TAGS.care}</div>
+  <div class="group"><span class="group-label">Something just happened</span><div class="grid">${cards(["left","email"])}</div></div>
+  <div class="group"><span class="group-label">Keep things secure</span><div class="grid">${cards(["backup","mfa","admin","laptop"])}</div></div>
+  <footer>© 2026 Catherine Jason</footer>`;
+  app.querySelectorAll(".seg").forEach(g => g.querySelectorAll("button").forEach(b => b.onclick = () => { state[g.dataset.name] = b.dataset.v; save(); home(); }));
+  document.getElementById("setupBtn").onclick = () => topic("start");
+  document.getElementById("panicBtn").onclick = panic;
+  app.querySelectorAll(".topic:not([disabled])").forEach(b => b.onclick = () => topic(b.dataset.id));
+}
+
+function copyText(text, btn){
+  const done = () => { btn.textContent = "Copied"; setTimeout(() => btn.textContent = "Copy message", 1600); };
+  try { navigator.clipboard.writeText(text).then(done, () => selectFallback(btn)); }
+  catch(e) { selectFallback(btn); }
+}
+function selectFallback(btn){
+  const pre = btn.parentElement.querySelector("pre");
+  const r = document.createRange(); r.selectNodeContents(pre);
+  const s = getSelection(); s.removeAllRanges(); s.addRange(r);
+  btn.textContent = "Selected. Press Ctrl+C to copy";
+}
+
+function topic(id){
+  const t = TOPICS.find(x => x.id === id), n = t.steps.length, it = state.mode === "it";
+  let i = Math.min(state.progress[key(id)] || 0, n);
+  const set = v => { i = v; state.progress[key(id)] = v; save(); draw(); };
+  const draw = () => {
+    if (i >= n) {
+      app.innerHTML = `<button class="back" id="back">← All topics</button>
+      <div class="step"><span class="eyebrow">${t.title}</span><h2>You finished every step</h2>
+      <p>${it ? "Here is what you handled yourself and what you sent to your IT provider." : "Here is everything you handled. Nice work doing this on your own."}</p>
+      <ul class="list">${t.steps.map(s => `<li>${tagFor(s)}<span>${pick(s.t)}</span></li>`).join("")}</ul>
+      <div class="nav"><button class="btn" id="restart">Start over</button><button class="btn primary" id="home">Pick another topic</button></div></div>`;
+      document.getElementById("restart").onclick = () => set(0);
+      document.getElementById("home").onclick = home;
+    } else {
+      const s = t.steps[i];
+      let body;
+      if (it && s.tag === "ask") body = `<p>${pick(s.d)}</p><div class="box send"><b>Message to send your IT provider</b><pre>${pick(s.msg)}</pre><button class="btn small" id="copy">Copy message</button></div>`;
+      else if (it) body = `<p>${pick(s.d)}</p>`;
+      else body = `<ol class="howto">${pick(s.diy).map(x => `<li>${x}</li>`).join("")}</ol>`;
+      app.innerHTML = `<button class="back" id="back">← All topics</button>
+      <div class="bar" aria-label="Progress"><span style="width:${(i / n) * 100}%"></span></div>
+      <div class="step"><span class="eyebrow">${t.title} · Step ${i + 1} of ${n} · ${PLAT[state.plat]}</span>
+      <h2>${pick(s.t)}</h2>${tagFor(s)}${body}
+      <div class="box why"><b>Why it matters</b>${pick(s.why)}</div>
+      <div class="box oops"><b>Worried about messing up?</b>${pick(s.oops)}</div>
+      <div class="nav">${i ? '<button class="btn" id="prev">Back</button>' : ""}<button class="btn primary" id="next">${i === n - 1 ? "Finish" : "Done, next step"}</button></div></div>`;
+      document.getElementById("next").onclick = () => set(i + 1);
+      const p = document.getElementById("prev"); if (p) p.onclick = () => set(i - 1);
+      const c = document.getElementById("copy"); if (c) c.onclick = () => copyText(pick(s.msg), c);
+    }
+    document.getElementById("back").onclick = home;
+    window.scrollTo(0, 0);
+  };
+  draw();
+}
+
+function panic(){
+  const list = PANIC[state.mode] || PANIC.it;
+  app.innerHTML = `<button class="back" id="back">← All topics</button>
+  <div class="step"><span class="eyebrow">Stay calm</span><h2>I think I broke something</h2>
+  <ul class="list">${list.map(p => `<li>${p}</li>`).join("")}</ul>
+  <button class="btn primary" id="home">Back to topics</button></div>`;
+  document.getElementById("back").onclick = home;
+  document.getElementById("home").onclick = home;
+}
+
+route();
+</script>
+
+</body>
+</html>
