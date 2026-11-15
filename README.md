@@ -12,3 +12,4 @@ Everything runs in the browser. Nothing gets saved to a server.
 **Frameworks used:** CIS Controls 5 and 6, NIST CSF 2.0 PR.AA
 
 **Try it:** https://catherine-jason.github.io/click-by-click-offboarding/
+**Slides:** [Capstone presentation (PDF)](capstone-slides.pdf)
