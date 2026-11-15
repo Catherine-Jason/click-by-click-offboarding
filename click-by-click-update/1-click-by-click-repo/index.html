@@ -1,0 +1,596 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#03060b">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Offboarding">
+<title>Click by Click Offboarding</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one working column with a sticky access card on top; three steps in order: Intake, Checklist, Record */
+/* Single black terminal look on purpose: same in light and dark viewer themes */
+:root{
+  --bg:#03060b; --surface:#0a1019; --ink:#e3eefa; --muted:#8d9cb2; --line:#1a2638;
+  --accent:#00aaff; --accent-ink:#00101c; --accent-soft:#062339;
+  --done:#4fd8ff; --done-soft:#072a38; --warn:#ffb020; --warn-soft:#2b2008; --skip:#66728a;
+  --grid:rgba(0,170,255,0.06);
+  --f-display:"JetBrains Mono", "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  --f-body:"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono:"JetBrains Mono", "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  color-scheme:dark;
+}
+
+*{box-sizing:border-box}
+body{background-color:var(--bg); background-image:linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px); background-size:28px 28px; color:var(--ink); font-family:var(--f-body); font-size:15px; line-height:1.5;
+  padding-left:max(16px, env(safe-area-inset-left, 0px)); padding-right:max(16px, env(safe-area-inset-right, 0px)); padding-block:20px 48px}
+.wrap{max-width:860px; margin:0 auto; display:flex; flex-direction:column; gap:20px}
+h1,h2,h3{font-family:var(--f-display); margin:0; text-wrap:balance; letter-spacing:-0.01em}
+h1{font-size:clamp(26px,5vw,34px); font-weight:800}
+h2{font-size:20px; font-weight:700}
+h3{font-size:15px; font-weight:700; text-transform:uppercase; letter-spacing:0.06em}
+p{margin:0}
+.muted{color:var(--muted)}
+.mono{font-family:var(--f-mono); font-variant-numeric:tabular-nums}
+button{font:inherit; color:inherit; cursor:pointer}
+:focus-visible{outline:3px solid var(--accent); outline-offset:2px}
+
+header.top{display:flex; flex-wrap:wrap; gap:12px 20px; align-items:flex-end; justify-content:space-between}
+.top .sub{color:var(--muted); max-width:46ch}
+.top .actions{display:flex; gap:8px; flex-wrap:wrap}
+
+.btn{border:1px solid var(--line); background:var(--surface); border-radius:8px; padding:8px 14px; font-weight:600; font-size:14px}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent); color:var(--accent-ink); border-color:var(--accent)}
+.btn.warn{border-color:var(--warn); color:var(--warn)}
+
+/* access card */
+.card{position:sticky; top:env(safe-area-inset-top, 0px); z-index:5; background:var(--surface); border:1px solid var(--line); border-radius:14px;
+  padding:14px 16px; display:grid; grid-template-columns:auto 1fr auto; gap:14px; align-items:center; box-shadow:0 6px 18px -12px rgba(10,30,40,.35)}
+.chip{width:44px; height:32px; border-radius:6px; border:2px solid var(--line); position:relative; background:var(--accent-soft)}
+.chip::before,.chip::after{content:""; position:absolute; left:6px; right:6px; height:2px; background:var(--accent); opacity:.6}
+.chip::before{top:9px} .chip::after{bottom:9px}
+.card.closed .chip{background:var(--done-soft)} .card.closed .chip::before,.card.closed .chip::after{background:var(--done)}
+.card .who{min-width:0}
+.card .who b{font-family:var(--f-display); font-size:16px; display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.card .who span{font-size:13px; color:var(--muted)}
+.bar{grid-column:1 / -1; height:8px; border-radius:99px; background:var(--accent-soft); overflow:hidden}
+.bar i{display:block; height:100%; width:0; background:var(--accent); box-shadow:0 0 12px var(--accent); transition:width .3s}
+h1::before{content:"> "; color:var(--accent)}
+.btn.primary{box-shadow:0 0 14px -4px var(--accent)}
+.item .check{border-color:var(--accent) !important}
+.item.s-done .check{box-shadow:0 0 10px -2px var(--done)}
+.card.closed .bar i{background:var(--done)}
+.status{font-family:var(--f-mono); font-size:12px; font-weight:500; letter-spacing:.08em; text-transform:uppercase; padding:4px 8px; border-radius:6px; background:var(--warn-soft); color:var(--warn); white-space:nowrap}
+.card.closed .status{background:var(--done-soft); color:var(--done)}
+
+/* steps */
+nav.steps{display:grid; grid-template-columns:repeat(3,1fr); gap:6px; background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:6px}
+nav.steps button{border:0; background:transparent; border-radius:8px; padding:10px 8px; font-weight:600; font-size:14px; color:var(--muted); display:flex; gap:8px; align-items:center; justify-content:center}
+nav.steps button .n{font-family:var(--f-mono); font-size:12px; width:22px; height:22px; border-radius:50%; border:1.5px solid currentColor; display:grid; place-items:center}
+nav.steps button[aria-current="step"]{background:var(--accent); color:var(--accent-ink)}
+
+.panel{background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:20px; display:flex; flex-direction:column; gap:18px}
+.banner{background:var(--accent-soft); border-radius:10px; padding:10px 14px; font-size:14px; display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:space-between}
+.banner.warn{background:var(--warn-soft); color:var(--ink)}
+.banner.warn b{color:var(--warn)}
+
+/* form */
+.grid2{display:grid; grid-template-columns:1fr 1fr; gap:14px}
+.field{display:flex; flex-direction:column; gap:6px; min-width:0}
+.field label,.legend{font-size:13px; font-weight:600}
+.field small{color:var(--muted); font-size:12.5px}
+input[type=text],input[type=date],textarea{font:inherit; color:var(--ink); background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:9px 11px; width:100%}
+textarea{resize:vertical; min-height:60px; font-size:14px}
+.seg{display:flex; gap:6px; flex-wrap:wrap}
+.seg label{display:flex; align-items:center; gap:6px; border:1px solid var(--line); border-radius:8px; padding:8px 12px; cursor:pointer; font-size:14px; font-weight:500; background:var(--bg)}
+.seg input{accent-color:var(--accent)}
+.seg label:has(input:checked){border-color:var(--accent); background:var(--accent-soft)}
+.systems{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px}
+.systems label{display:flex; gap:10px; align-items:flex-start; border:1px solid var(--line); border-radius:8px; padding:10px 12px; cursor:pointer; background:var(--bg); font-size:14px}
+.systems label:has(input:checked){border-color:var(--accent); background:var(--accent-soft)}
+.systems input{accent-color:var(--accent); margin-top:3px}
+.systems small{display:block; color:var(--muted); font-size:12px}
+.formfoot{display:flex; flex-wrap:wrap; gap:12px; align-items:center; justify-content:space-between; border-top:1px solid var(--line); padding-top:16px}
+
+/* checklist */
+.phase{display:flex; flex-direction:column; gap:10px}
+.phase-head{display:flex; flex-wrap:wrap; gap:8px 12px; align-items:baseline; justify-content:space-between; border-bottom:2px solid var(--ink); padding-bottom:6px}
+.phase-head .when{font-family:var(--f-mono); font-size:13px; color:var(--muted)}
+.item{display:grid; grid-template-columns:auto 1fr; gap:12px; padding:12px; border:1px solid var(--line); border-radius:10px; background:var(--surface)}
+.item .check{width:28px; height:28px; border-radius:7px; border:2px solid var(--line); background:var(--bg); display:grid; place-items:center; padding:0}
+.item .check svg{width:16px; height:16px; opacity:0}
+.item.s-done{background:var(--done-soft); border-color:transparent}
+.item.s-done .check{background:var(--done); border-color:var(--done); color:var(--surface)}
+.item.s-done .check svg{opacity:1}
+.item.s-done .t{text-decoration:line-through; text-decoration-color:var(--done)}
+.item.s-na{opacity:.6}
+.item.s-na .t{text-decoration:line-through}
+.item .body{min-width:0; display:flex; flex-direction:column; gap:4px}
+.item .t{font-weight:600}
+.item .why{font-size:13.5px; color:var(--muted)}
+.item .meta{display:flex; flex-wrap:wrap; gap:6px 14px; align-items:center; font-size:12.5px; margin-top:2px}
+.tag{font-family:var(--f-mono); font-size:11px; letter-spacing:.06em; text-transform:uppercase; padding:2px 7px; border-radius:5px; border:1px solid var(--line); color:var(--muted)}
+.tag.urgent{border-color:var(--warn); color:var(--warn)}
+.linkbtn{border:0; background:none; padding:0; color:var(--accent); font-weight:600; font-size:12.5px; text-decoration:underline; text-underline-offset:2px}
+.stamp{font-family:var(--f-mono); font-size:12px; color:var(--done)}
+
+/* record */
+.recordhead{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px}
+.kv{border:1px solid var(--line); border-radius:10px; padding:10px 12px; min-width:0}
+.kv span{display:block; font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:.06em}
+.kv b{font-family:var(--f-mono); font-weight:500; font-size:14px; overflow-wrap:anywhere}
+.tablewrap{overflow-x:auto; border:1px solid var(--line); border-radius:10px}
+table{border-collapse:collapse; width:100%; font-size:13.5px; min-width:560px}
+th,td{text-align:left; padding:9px 12px; border-bottom:1px solid var(--line); vertical-align:top}
+th{font-size:12px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); background:var(--bg)}
+tr:last-child td{border-bottom:0}
+.st{font-family:var(--f-mono); font-size:12px; white-space:nowrap}
+.st.done{color:var(--done)} .st.na{color:var(--skip)} .st.open{color:var(--warn); font-weight:500}
+.rowbtns{display:flex; gap:8px; flex-wrap:wrap}
+#copyText{position:absolute; left:-9999px; top:0}
+footer{font-size:12.5px; color:var(--muted); display:flex; flex-direction:column; gap:4px; text-align:center}
+
+@media (max-width:620px){
+  .grid2,.systems,.recordhead{grid-template-columns:1fr}
+  nav.steps button .lbl-long{display:none}
+  .card{grid-template-columns:auto 1fr}
+  .card .status{grid-column:1 / -1; justify-self:start}
+}
+@media (prefers-reduced-motion:reduce){ *{transition:none!important} }
+@media print{
+  body{background:#fff; color:#000}
+  .card,nav.steps,header .actions,.rowbtns,footer,.banner{display:none!important}
+  .panel{border:0; padding:0}
+}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>Click by Click Offboarding</h1>
+      <p class="sub">Shut off every account, device and key when a staff member or volunteer leaves your nonprofit, one step at a time.</p>
+    </div>
+    <div class="actions">
+      <button class="btn" id="btnExample" type="button">Load example</button>
+      <button class="btn warn" id="btnNew" type="button">Start new</button>
+    </div>
+  </header>
+
+  <div class="card" id="card" aria-live="polite">
+    <div class="chip" aria-hidden="true"></div>
+    <div class="who"><b id="cardWho">Departing person</b><span id="cardSub"></span></div>
+    <div class="status" id="cardStatus">Access open</div>
+    <div class="bar"><i id="cardBar"></i></div>
+  </div>
+
+  <nav class="steps" aria-label="Steps">
+    <button type="button" data-step="intake"><span class="n">1</span><span>Intake<span class="lbl-long"> questions</span></span></button>
+    <button type="button" data-step="list"><span class="n">2</span><span>Checklist</span></button>
+    <button type="button" data-step="record"><span class="n">3</span><span>Record</span></button>
+  </nav>
+
+  <main id="view"></main>
+
+  <footer>
+    <p>Everything stays in this browser. Nothing is sent anywhere.</p>
+    <p>Built around Ready5 Identity, CIS Controls 5 and 6 (Account and Access Control Management), and NIST CSF 2.0 PR.AA.</p>
+  </footer>
+</div>
+<textarea id="copyText" aria-hidden="true" tabindex="-1"></textarea>
+
+<script>
+(function(){
+const KEY = "cbc-offboarding-v1";
+const CHECK = '<svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 8.5l3.2 3L13 4.5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+const SYSTEMS = [
+  {id:"email", label:"Organization email", hint:"Microsoft 365, Google Workspace"},
+  {id:"cloud", label:"Cloud files", hint:"OneDrive, SharePoint, Google Drive, Dropbox"},
+  {id:"database", label:"Donor or client database", hint:"Bloomerang, Salesforce, a shared spreadsheet"},
+  {id:"finance", label:"Bank, payroll or payment accounts", hint:"Online banking, payroll, card or donation processor"},
+  {id:"social", label:"Social media accounts", hint:"Facebook, Instagram, LinkedIn pages"},
+  {id:"website", label:"Website, hosting or domain", hint:"WordPress, Squarespace, domain registrar"},
+  {id:"sharedpw", label:"Shared passwords or a password manager", hint:"WiFi, shared logins, Bitwarden, 1Password"},
+  {id:"laptop", label:"Organization laptop or tablet", hint:""},
+  {id:"phone", label:"Organization phone", hint:""},
+  {id:"personal", label:"Work email or apps on their personal phone", hint:""},
+  {id:"keys", label:"Keys, badge or alarm code", hint:""}
+];
+
+const has = (i, s) => i.systems.indexOf(s) !== -1;
+const TASKS = [
+  {id:"u_timing", phase:"before", urgent:true, area:"Response", when:i=>i.departure==="unplanned",
+    title:"Turn off access at the same time they are told they are leaving",
+    why:"A person who is upset and still has working logins is the biggest risk. Do the urgent steps below first."},
+  {id:"inv", phase:"before", area:"Identity", when:()=>true,
+    title:"List every account, system and device they use",
+    why:"You cannot remove access you do not know about. Ask their supervisor and check the systems you checked above."},
+  {id:"handoff", phase:"before", area:"Personnel", when:()=>true,
+    title:"Pick who takes over their files, email and duties",
+    why:"Work keeps moving, and nothing gets deleted by mistake."},
+  {id:"e_fwd", phase:"before", area:"Email", when:i=>has(i,"email"),
+    title:"Set an auto reply and decide who gets their incoming email",
+    why:"Donors and partners still writing to them get pointed to the right person."},
+  {id:"c_own", phase:"before", area:"Data", when:i=>has(i,"cloud"),
+    title:"Move ownership of their files and folders to the new owner",
+    why:"In most cloud apps, files owned by a deleted account get deleted with it."},
+  {id:"l_backup", phase:"before", area:"Endpoint", when:i=>has(i,"laptop"),
+    title:"Back up work files saved only on their laptop or tablet",
+    why:"Files on the desktop or in Downloads are often the only copy."},
+  {id:"ph_mfa", phase:"before", area:"Identity", when:i=>has(i,"phone"),
+    title:"Move any accounts that send MFA codes to this phone number",
+    why:"If the number goes with them, so do your login codes for shared accounts."},
+
+  {id:"a_first", phase:"day", urgent:true, area:"Identity", when:i=>i.admin,
+    title:"Remove their admin rights first",
+    why:"An admin account can create new accounts, read other mailboxes and turn off security settings."},
+  {id:"e_block", phase:"day", urgent:true, area:"Identity", when:i=>has(i,"email"),
+    title:"Block sign in to their email account",
+    why:"This stops them, or anyone who has their password, from getting in. Block it instead of deleting it for now."},
+  {id:"e_reset", phase:"day", urgent:true, area:"Identity", when:i=>has(i,"email"),
+    title:"Reset their password and sign them out of all devices",
+    why:"Blocking sign in does not always end sessions that are already open on phones and laptops."},
+  {id:"e_mfa", phase:"day", area:"Identity", when:i=>has(i,"email"),
+    title:"Remove their MFA methods, like the authenticator app or phone number",
+    why:"Old MFA methods left on the account can be used to get it back."},
+  {id:"e_rules", phase:"day", area:"Email", when:i=>has(i,"email"),
+    title:"Check their mailbox for forwarding rules that send mail outside",
+    why:"A forwarding rule can quietly keep sending copies of your mail to a personal or attacker inbox."},
+  {id:"c_links", phase:"day", area:"Data", when:i=>has(i,"cloud"),
+    title:"Remove them from shared drives and turn off links they shared outside",
+    why:"Anyone with an old sharing link can still open the file."},
+  {id:"d_disable", phase:"day", urgent:true, area:"Identity", when:i=>has(i,"database"),
+    title:"Turn off their login to the donor or client database",
+    why:"Donor and client lists hold the most sensitive data most nonprofits have."},
+  {id:"d_export", phase:"day", area:"Data", when:i=>has(i,"database"),
+    title:"Check if they exported or downloaded large lists recently",
+    why:"Most databases keep an export log. Large exports near the last day are a red flag."},
+  {id:"f_bank", phase:"day", urgent:true, area:"Identity", when:i=>has(i,"finance"),
+    title:"Remove them from bank, payroll and payment accounts",
+    why:"Money accounts are the first thing attackers and upset insiders go after."},
+  {id:"f_card", phase:"day", area:"Finance", when:i=>has(i,"finance"),
+    title:"Collect or cancel any organization credit card",
+    why:"Also check for saved card details in online stores they used for work."},
+  {id:"s_admin", phase:"day", area:"Identity", when:i=>has(i,"social"),
+    title:"Remove them as an admin on the organization's social media pages",
+    why:"A former admin can post as your organization or delete the page."},
+  {id:"s_pw", phase:"day", area:"Identity", when:i=>has(i,"social"),
+    title:"Change passwords on any shared social media logins",
+    why:"Shared logins do not get turned off when one person leaves."},
+  {id:"s_two", phase:"day", area:"Identity", when:i=>has(i,"social"),
+    title:"Make sure at least two current people are still admins",
+    why:"If the only admin leaves, you can get locked out of your own page."},
+  {id:"w_admin", phase:"day", urgent:true, area:"Edge", when:i=>has(i,"website"),
+    title:"Remove their website, hosting and domain account access",
+    why:"Whoever controls the domain controls your website and your email delivery."},
+  {id:"w_pw", phase:"day", area:"Edge", when:i=>has(i,"website"),
+    title:"Change any website or domain passwords they knew",
+    why:"Check the domain registrar contact email too, so renewal notices come to you."},
+  {id:"p_change", phase:"day", area:"Identity", when:i=>has(i,"sharedpw"),
+    title:"Change every shared password they knew, including WiFi and alarm system logins",
+    why:"Start with the accounts that matter most: money, email, donor data."},
+  {id:"p_vault", phase:"day", area:"Identity", when:i=>has(i,"sharedpw"),
+    title:"Remove them from shared password manager vaults",
+    why:"Removing them stops access to saved passwords, but anything they already copied still needs changing."},
+  {id:"a_created", phase:"day", area:"Identity", when:i=>i.admin,
+    title:"Look for accounts they created and apps they connected",
+    why:"Leftover accounts and connected apps are a common way back in."},
+  {id:"l_collect", phase:"day", area:"Endpoint", when:i=>has(i,"laptop"),
+    title:"Collect the laptop or tablet and charger",
+    why:"Write down the serial number in the note so the record shows which device came back."},
+  {id:"ph_collect", phase:"day", area:"Endpoint", when:i=>has(i,"phone"),
+    title:"Collect the organization phone",
+    why:"Do not reset it until MFA codes and contacts have been moved."},
+  {id:"bp_remove", phase:"day", area:"Endpoint", when:i=>has(i,"personal"),
+    title:"Remove work email and apps from their personal phone",
+    why:"Signing them out of the work apps removes work data without touching their personal photos or texts."},
+  {id:"k_collect", phase:"day", area:"Physical", when:i=>has(i,"keys"),
+    title:"Collect keys, badges and fobs",
+    why:"Count them against what was handed out."},
+  {id:"k_disable", phase:"day", area:"Physical", when:i=>has(i,"keys"),
+    title:"Turn off their badge and remove or change their alarm code",
+    why:"If a key is missing, think about changing the lock."},
+  {id:"groups", phase:"day", area:"Comms", when:()=>true,
+    title:"Remove them from group chats, mailing lists and shared calendars",
+    why:"Team chats and calendars often hold internal plans and client details."},
+  {id:"notes", phase:"day", area:"Identity", when:()=>true,
+    title:"Collect any written passwords, notes or MFA backup codes",
+    why:"Sticky notes and notebooks count as access too."},
+
+  {id:"check30", phase:"after", area:"Identity", when:()=>true,
+    title:"Confirm every account is still turned off",
+    why:"Accounts sometimes get turned back on by mistake or by a vendor."},
+  {id:"e_after", phase:"after", area:"Email", when:i=>has(i,"email"),
+    title:"Turn the mailbox into a shared mailbox or archive it, then free the license",
+    why:"This keeps the email history and stops paying for an unused seat."},
+  {id:"f_signer", phase:"after", area:"Finance", when:i=>has(i,"finance"),
+    title:"Update bank signers and approvers in writing",
+    why:"Banks need written notice to remove an authorized signer."},
+  {id:"l_wipe", phase:"after", area:"Endpoint", when:i=>has(i,"laptop"),
+    title:"Wipe and reset the laptop or tablet before giving it to someone else",
+    why:"Only after the backup is confirmed."},
+  {id:"ph_wipe", phase:"after", area:"Endpoint", when:i=>has(i,"phone"),
+    title:"Reset the organization phone before reusing it",
+    why:"Only after MFA codes have moved to a new device."},
+  {id:"a_review", phase:"after", area:"Identity", when:i=>i.admin,
+    title:"Review the full admin list and confirm only current people are on it",
+    why:"A good habit every quarter, not only when someone leaves."},
+  {id:"save", phase:"after", area:"Records", when:()=>true,
+    title:"Save this record with your HR or IT files",
+    why:"Cyber insurance forms and audits often ask how you remove access when people leave."}
+];
+
+function pad(n){return String(n).padStart(2,"0")}
+function isoDate(d){return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())}
+function parseDate(s){ if(!s) return null; const p=s.split("-").map(Number); if(p.length!==3||!p[0]) return null; return new Date(p[0],p[1]-1,p[2]); }
+function addDays(d,n){const x=new Date(d); x.setDate(x.getDate()+n); return x}
+function fmt(d){return d? d.toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric",year:"numeric"}) : "Date not set"}
+function fmtStamp(ts){const d=new Date(ts); return d.toLocaleDateString("en-US",{month:"short",day:"numeric"})+" "+d.toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"})}
+function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+
+function nextFriday(){const d=new Date(); const add=(5-d.getDay()+7)%7||7; return isoDate(addDays(d,add))}
+function blank(){ return {step:"intake", example:false, intake:{role:"", type:"staff", departure:"planned", lastDay:"", doneBy:"", admin:false, systems:[], other:""}, items:{}} }
+function example(){
+  const s = blank(); s.example = true;
+  s.intake = {role:"Volunteer events lead", type:"volunteer", departure:"planned", lastDay:nextFriday(), doneBy:"Office manager", admin:false,
+    systems:["email","cloud","social","sharedpw","personal","keys"], other:"Event signup form (Google Forms)"};
+  return s;
+}
+function load(){ try{ const raw=localStorage.getItem(KEY); if(raw){ const s=JSON.parse(raw); if(s && s.intake) return s; } }catch(e){} return null }
+function save(){ try{ localStorage.setItem(KEY, JSON.stringify(state)) }catch(e){} }
+
+let state = load() || example();
+let confirmNew = false;
+
+function phaseOf(t){
+  if(state.intake.departure==="unplanned"){
+    if(t.urgent || t.id==="inv") return "before";
+    if(t.phase==="before") return "day";
+  }
+  return t.phase;
+}
+function activeTasks(){
+  const i = state.intake;
+  const list = TASKS.filter(t=>t.when(i)).map(t=>Object.assign({},t,{ph:phaseOf(t)}));
+  const others = (i.other||"").split(/[,\n;]/).map(x=>x.trim()).filter(Boolean);
+  others.forEach((o,idx)=>{
+    list.push({id:"other_"+idx+"_"+o.toLowerCase().replace(/[^a-z0-9]+/g,"").slice(0,24), ph:"day", area:"Identity",
+      urgent:false, title:"Remove their access to "+o, why:"You listed this system yourself on the intake screen."});
+  });
+  const order = {before:0, day:1, after:2};
+  return list.map((t,n)=>Object.assign(t,{n})).sort((a,b)=> order[a.ph]-order[b.ph] || (b.urgent?1:0)-(a.urgent?1:0) || a.n-b.n);
+}
+function itemState(id){ return state.items[id] || {status:"open", note:"", at:null} }
+function counts(list){
+  let done=0, na=0, open=0;
+  list.forEach(t=>{const s=itemState(t.id).status; if(s==="done")done++; else if(s==="na")na++; else open++;});
+  return {done,na,open,total:list.length};
+}
+function phaseInfo(ph){
+  const ld = parseDate(state.intake.lastDay); const unplanned = state.intake.departure==="unplanned";
+  if(ph==="before") return unplanned ? {label:"Right away", when:"Before or while they are told"} : {label:"Before the last day", when: ld? "By "+fmt(ld) : "Set a last day"};
+  if(ph==="day") return unplanned ? {label:"Same day", when: ld? fmt(ld) : "Today"} : {label:"On the last day", when: fmt(ld)};
+  return {label:"30 days after", when: ld? fmt(addDays(ld,30)) : "30 days after the last day"};
+}
+function personLabel(){ const i=state.intake; return i.role ? i.role : "Departing person"; }
+
+/* ---------- card ---------- */
+function renderCard(){
+  const list = activeTasks(); const c = counts(list);
+  const pct = c.total? Math.round((c.done+c.na)/c.total*100) : 0;
+  const i = state.intake;
+  document.getElementById("cardWho").textContent = personLabel();
+  const ld = parseDate(i.lastDay);
+  document.getElementById("cardSub").textContent = (i.type==="volunteer"?"Volunteer":i.type==="board"?"Board member":"Staff")+" · "+(i.departure==="unplanned"?"Unplanned exit":"Last day "+(ld?ld.toLocaleDateString("en-US",{month:"short",day:"numeric"}):"not set"))+" · "+(c.done+c.na)+" of "+c.total+" steps";
+  document.getElementById("cardBar").style.width = pct+"%";
+  const closed = c.total>0 && c.open===0;
+  document.getElementById("card").classList.toggle("closed", closed);
+  document.getElementById("cardStatus").textContent = closed ? "Access removed" : c.open+" open";
+}
+
+/* ---------- views ---------- */
+function exampleBanner(){
+  return state.example ? '<div class="banner"><span><b>Example loaded.</b> This is a sample person so you can see how it works.</span><button class="btn" type="button" data-act="new">Start your own</button></div>' : "";
+}
+
+function viewIntake(){
+  const i = state.intake;
+  const sys = SYSTEMS.map(s=>'<label for="sys_'+s.id+'"><input type="checkbox" id="sys_'+s.id+'" data-sys="'+s.id+'"'+(i.systems.indexOf(s.id)!==-1?" checked":"")+'><span>'+esc(s.label)+(s.hint?'<small>'+esc(s.hint)+'</small>':"")+'</span></label>').join("");
+  const n = activeTasks().length;
+  return '<section class="panel">'+exampleBanner()+
+  '<div><h2>Who is leaving?</h2><p class="muted">Answer a few questions and the checklist builds itself with only the steps that apply.</p></div>'+
+  '<div class="grid2">'+
+    '<div class="field"><label for="role">Role or name</label><input type="text" id="role" placeholder="Example: Program assistant" value="'+esc(i.role)+'"><small>A role is enough if you would rather not save a name here.</small></div>'+
+    '<div class="field"><label for="doneBy">Completed by</label><input type="text" id="doneBy" placeholder="Who is doing the offboarding" value="'+esc(i.doneBy)+'"></div>'+
+  '</div>'+
+  '<div class="grid2">'+
+    '<div class="field"><span class="legend">They are a</span><div class="seg">'+
+      ['staff','volunteer','board'].map(v=>'<label><input type="radio" name="type" value="'+v+'"'+(i.type===v?" checked":"")+'>'+({staff:"Staff member",volunteer:"Volunteer",board:"Board member"}[v])+'</label>').join("")+
+    '</div></div>'+
+    '<div class="field"><label for="lastDay">Last day</label><input type="date" id="lastDay" value="'+esc(i.lastDay)+'"></div>'+
+  '</div>'+
+  '<div class="grid2">'+
+    '<div class="field"><span class="legend">How are they leaving?</span><div class="seg">'+
+      '<label><input type="radio" name="departure" value="planned"'+(i.departure==="planned"?" checked":"")+'>Planned</label>'+
+      '<label><input type="radio" name="departure" value="unplanned"'+(i.departure==="unplanned"?" checked":"")+'>Unplanned or let go</label>'+
+    '</div><small>Unplanned moves the most important steps to the top.</small></div>'+
+    '<div class="field"><span class="legend">Did they have admin access to anything?</span><div class="seg">'+
+      '<label><input type="radio" name="admin" value="yes"'+(i.admin?" checked":"")+'>Yes</label>'+
+      '<label><input type="radio" name="admin" value="no"'+(!i.admin?" checked":"")+'>No</label>'+
+      '<label><input type="radio" name="admin" value="yes" data-unsure="1">Not sure</label>'+
+    '</div><small>If you are not sure, treat it as yes.</small></div>'+
+  '</div>'+
+  '<div class="field"><span class="legend">What did they have access to?</span><div class="systems">'+sys+'</div></div>'+
+  '<div class="field"><label for="other">Any other systems?</label><input type="text" id="other" placeholder="Separate with commas. Example: Zoom, Canva, scheduling app" value="'+esc(i.other)+'"></div>'+
+  '<div class="formfoot"><span class="muted" id="buildCount">This builds a checklist of <b>'+n+'</b> steps.</span><button class="btn primary" type="button" data-go="list">Build checklist</button></div>'+
+  '</section>';
+}
+
+function viewList(){
+  const list = activeTasks();
+  const unplanned = state.intake.departure==="unplanned";
+  let html = '<section class="panel">'+exampleBanner()+
+    '<div><h2>Checklist for '+esc(personLabel())+'</h2><p class="muted">Check each step when it is done. Mark a step as not needed if it does not apply.</p></div>';
+  if(unplanned) html += '<div class="banner warn"><span><b>Unplanned exit.</b> Do the steps under Right away before or at the same time the person is told.</span></div>';
+  ["before","day","after"].forEach(ph=>{
+    const items = list.filter(t=>t.ph===ph); if(!items.length) return;
+    const info = phaseInfo(ph); const c = counts(items);
+    html += '<div class="phase"><div class="phase-head"><h3>'+info.label+'</h3><span class="when">'+esc(info.when)+' · '+(c.done+c.na)+'/'+c.total+'</span></div>';
+    items.forEach(t=>{
+      const s = itemState(t.id);
+      html += '<div class="item s-'+s.status+'" data-id="'+t.id+'">'+
+        '<button class="check" type="button" data-act="toggle" aria-pressed="'+(s.status==="done")+'" aria-label="Mark done: '+esc(t.title)+'">'+CHECK+'</button>'+
+        '<div class="body"><div class="t">'+esc(t.title)+'</div><div class="why">'+esc(t.why)+'</div>'+
+        '<div class="meta">'+(t.urgent&&unplanned?'<span class="tag urgent">Urgent</span>':"")+'<span class="tag">'+esc(t.area)+'</span>'+
+        (s.status==="done"&&s.at?'<span class="stamp">Done '+esc(fmtStamp(s.at))+'</span>':"")+
+        '<button class="linkbtn" type="button" data-act="skip">'+(s.status==="na"?"Undo not needed":"Not needed")+'</button>'+
+        '<button class="linkbtn" type="button" data-act="note">'+(s.note?"Edit note":"Add note")+'</button></div>'+
+        '<textarea id="note_'+t.id+'" data-note="'+t.id+'" placeholder="Example: Laptop serial 5CG1234, returned to front desk"'+(s.note?"":" hidden")+'>'+esc(s.note)+'</textarea>'+
+        '</div></div>';
+    });
+    html += '</div>';
+  });
+  html += '<div class="formfoot"><button class="btn" type="button" data-go="intake">Back to intake</button><button class="btn primary" type="button" data-go="record">View record</button></div></section>';
+  return html;
+}
+
+function recordText(){
+  const i = state.intake; const list = activeTasks(); const c = counts(list);
+  const lines = [];
+  lines.push("OFFBOARDING RECORD");
+  lines.push("Person or role: "+personLabel());
+  lines.push("Type: "+({staff:"Staff member",volunteer:"Volunteer",board:"Board member"}[i.type]));
+  lines.push("Departure: "+(i.departure==="unplanned"?"Unplanned":"Planned"));
+  lines.push("Last day: "+fmt(parseDate(i.lastDay)));
+  lines.push("Completed by: "+(i.doneBy||"Not entered"));
+  lines.push("Admin access: "+(i.admin?"Yes":"No"));
+  lines.push("Record created: "+new Date().toLocaleString("en-US"));
+  lines.push("Summary: "+c.done+" done, "+c.na+" not needed, "+c.open+" open, "+c.total+" total");
+  ["before","day","after"].forEach(ph=>{
+    const items = list.filter(t=>t.ph===ph); if(!items.length) return;
+    lines.push(""); lines.push(phaseInfo(ph).label.toUpperCase()+" ("+phaseInfo(ph).when+")");
+    items.forEach(t=>{
+      const s=itemState(t.id);
+      const st = s.status==="done" ? "[DONE "+(s.at?fmtStamp(s.at):"")+"]" : s.status==="na" ? "[NOT NEEDED]" : "[OPEN]";
+      lines.push(st+" "+t.title+(s.note?"\n    Note: "+s.note:""));
+    });
+  });
+  return lines.join("\n");
+}
+
+const TOP = (function(){ try{ return window.self === window.top }catch(e){ return false } })();
+
+function viewRecord(){
+  const i = state.intake; const list = activeTasks(); const c = counts(list);
+  let rows = "";
+  list.forEach(t=>{
+    const s=itemState(t.id);
+    const st = s.status==="done" ? '<span class="st done">Done'+(s.at?" "+esc(fmtStamp(s.at)):"")+'</span>' : s.status==="na" ? '<span class="st na">Not needed</span>' : '<span class="st open">Open</span>';
+    rows += '<tr><td>'+esc(phaseInfo(t.ph).label)+'</td><td>'+esc(t.title)+'</td><td>'+st+'</td><td>'+esc(s.note)+'</td></tr>';
+  });
+  return '<section class="panel">'+exampleBanner()+
+  '<div><h2>Offboarding record</h2><p class="muted">Proof that access was removed. Keep a copy with your HR or IT files.</p></div>'+
+  (c.open? '<div class="banner warn"><span><b>'+c.open+' step'+(c.open===1?" is":"s are")+' still open.</b> Finish them or mark them as not needed before you save this record.</span><button class="btn" type="button" data-go="list">Go to checklist</button></div>' : '<div class="banner"><span><b>All steps are closed.</b> Access for this person has been removed.</span></div>')+
+  '<div class="recordhead">'+
+    '<div class="kv"><span>Person or role</span><b>'+esc(personLabel())+'</b></div>'+
+    '<div class="kv"><span>Last day</span><b>'+esc(fmt(parseDate(i.lastDay)))+'</b></div>'+
+    '<div class="kv"><span>Completed by</span><b>'+esc(i.doneBy||"Not entered")+'</b></div>'+
+    '<div class="kv"><span>Done</span><b>'+c.done+' of '+c.total+'</b></div>'+
+    '<div class="kv"><span>Not needed</span><b>'+c.na+'</b></div>'+
+    '<div class="kv"><span>Open</span><b>'+c.open+'</b></div>'+
+  '</div>'+
+  '<div class="tablewrap"><table><thead><tr><th>When</th><th>Step</th><th>Status</th><th>Note</th></tr></thead><tbody>'+rows+'</tbody></table></div>'+
+  '<div class="rowbtns"><button class="btn primary" type="button" data-act="copy" id="btnCopy">Copy record</button>'+
+  (TOP? '<button class="btn" type="button" data-act="download">Download as text file</button><button class="btn" type="button" data-act="print">Print</button>' : '')+
+  '</div></section>';
+}
+
+function render(){
+  const v = document.getElementById("view");
+  v.innerHTML = state.step==="list" ? viewList() : state.step==="record" ? viewRecord() : viewIntake();
+  document.querySelectorAll("nav.steps button").forEach(b=>{ if(b.dataset.step===state.step) b.setAttribute("aria-current","step"); else b.removeAttribute("aria-current"); });
+  renderCard();
+}
+function go(step){ state.step=step; save(); render(); window.scrollTo({top:0, behavior:"smooth"}); }
+
+/* ---------- events ---------- */
+document.querySelector("nav.steps").addEventListener("click",e=>{ const b=e.target.closest("button[data-step]"); if(b) go(b.dataset.step); });
+
+const view = document.getElementById("view");
+view.addEventListener("input",e=>{
+  const el=e.target; const i=state.intake;
+  if(el.id==="role"||el.id==="doneBy"||el.id==="lastDay"||el.id==="other"){ i[el.id]=el.value; }
+  else if(el.dataset.note){ const s=Object.assign({},itemState(el.dataset.note)); s.note=el.value; state.items[el.dataset.note]=s; save(); return; }
+  else return;
+  save(); renderCard(); updateCount();
+});
+view.addEventListener("change",e=>{
+  const el=e.target; const i=state.intake;
+  if(el.dataset.sys){ const set=new Set(i.systems); el.checked?set.add(el.dataset.sys):set.delete(el.dataset.sys); i.systems=SYSTEMS.map(s=>s.id).filter(id=>set.has(id)); }
+  else if(el.name==="type") i.type=el.value;
+  else if(el.name==="departure") i.departure=el.value;
+  else if(el.name==="admin") i.admin = el.value==="yes";
+  else if(el.id==="lastDay") i.lastDay=el.value;
+  else return;
+  save(); renderCard(); updateCount();
+});
+function updateCount(){ const el=document.getElementById("buildCount"); if(el) el.innerHTML='This builds a checklist of <b>'+activeTasks().length+'</b> steps.'; }
+
+view.addEventListener("click",e=>{
+  const g=e.target.closest("[data-go]"); if(g){ go(g.dataset.go); return; }
+  const a=e.target.closest("[data-act]"); if(!a) return;
+  const act=a.dataset.act;
+  if(act==="new"){ startNew(); return; }
+  if(act==="copy"){ copyRecord(a); return; }
+  if(act==="download"){ download(); return; }
+  if(act==="print"){ window.print(); return; }
+  const row=a.closest(".item"); if(!row) return;
+  const id=row.dataset.id; const s=Object.assign({},itemState(id));
+  if(act==="toggle"){ if(s.status==="done"){ s.status="open"; s.at=null; } else { s.status="done"; s.at=Date.now(); } }
+  else if(act==="skip"){ s.status = s.status==="na" ? "open" : "na"; s.at=null; }
+  else if(act==="note"){ const ta=row.querySelector("textarea"); ta.hidden=false; ta.focus(); return; }
+  state.items[id]=s; save();
+  const y=window.scrollY; render(); window.scrollTo(0,y);
+  const again=view.querySelector('.item[data-id="'+id+'"] [data-act="'+act+'"]'); if(again) again.focus({preventScroll:true});
+});
+
+function copyRecord(btn){
+  const text=recordText();
+  const done=()=>{ btn.textContent="Copied"; setTimeout(()=>{btn.textContent="Copy record"},1800); };
+  const fallback=()=>{ const ta=document.getElementById("copyText"); ta.value=text; ta.select(); let ok=false; try{ ok=document.execCommand("copy") }catch(err){} if(ok) done(); else { btn.textContent="Select and copy the text below"; showPlain(text); } };
+  try{ navigator.clipboard.writeText(text).then(done, fallback); }catch(err){ fallback(); }
+}
+function showPlain(text){
+  if(document.getElementById("plainRec")) return;
+  const ta=document.createElement("textarea"); ta.id="plainRec"; ta.readOnly=true; ta.value=text; ta.style.minHeight="240px"; ta.style.fontFamily="var(--f-mono)";
+  view.querySelector(".panel").appendChild(ta); ta.focus(); ta.select();
+}
+function download(){
+  const blob=new Blob([recordText()],{type:"text/plain"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
+  a.download="offboarding-record-"+(state.intake.lastDay||isoDate(new Date()))+".txt";
+  document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(a.href); a.remove();},500);
+}
+
+const btnNew=document.getElementById("btnNew");
+function startNew(){
+  if(!state.example && !confirmNew){ confirmNew=true; btnNew.textContent="Tap again to clear"; setTimeout(()=>{confirmNew=false; btnNew.textContent="Start new";},3000); return; }
+  confirmNew=false; btnNew.textContent="Start new";
+  state=blank(); state.intake.lastDay=isoDate(new Date()); save(); render();
+}
+btnNew.addEventListener("click",startNew);
+document.getElementById("btnExample").addEventListener("click",()=>{ state=example(); save(); render(); });
+
+render();
+})();
+</script>
+</body>
+</html>
