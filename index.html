@@ -138,7 +138,10 @@ tr:last-child td{border-bottom:0}
 /* device inventory */
 select{font:inherit; color:var(--ink); background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:9px 11px; width:100%}
 .devlist{display:flex; flex-direction:column; gap:8px}
-.devrow{display:grid; grid-template-columns:15em 1fr 1fr auto; gap:8px; align-items:center; border:1px solid var(--line); border-radius:8px; padding:8px; background:var(--bg)}
+.devrow{display:grid; grid-template-columns:15em 1fr 1fr auto; grid-template-areas:"type model serial rm" "os enc enc ."; gap:8px; align-items:center; border:1px solid var(--line); border-radius:8px; padding:8px; background:var(--bg)}
+.devrow.noos{grid-template-areas:"type model serial rm"}
+.devrow [data-field=type]{grid-area:type} .devrow [data-field=model]{grid-area:model} .devrow [data-field=serial]{grid-area:serial}
+.devrow [data-field=os]{grid-area:os} .devrow [data-field=enc]{grid-area:enc} .devrow [data-act=removeDevice]{grid-area:rm}
 .devrow input[type=text],.devrow select{background:var(--surface)}
 .devempty{border:1px dashed var(--line); border-radius:8px; padding:12px; font-size:14px; color:var(--muted)}
 .dev{display:flex; flex-direction:column; gap:8px; padding:12px; border:1px solid var(--line); border-radius:10px; background:var(--surface)}
@@ -152,8 +155,8 @@ footer{font-size:12.5px; color:var(--muted); display:flex; flex-direction:column
 
 @media (max-width:620px){
   .grid2,.systems,.recordhead{grid-template-columns:1fr}
-  .devrow{grid-template-columns:1fr auto}
-  .devrow input[type=text]{grid-column:1 / -1}
+  .devrow{grid-template-columns:1fr auto; grid-template-areas:"type rm" "model model" "serial serial" "os os" "enc enc"}
+  .devrow.noos{grid-template-areas:"type rm" "model model" "serial serial"}
   nav.steps button .lbl-long{display:none}
   .card{grid-template-columns:auto 1fr}
   .card .status{grid-column:1 / -1; justify-self:start}
@@ -197,7 +200,7 @@ footer{font-size:12.5px; color:var(--muted); display:flex; flex-direction:column
 
   <footer>
     <p><strong>Disclaimer:</strong> This tool is provided for educational purposes only. Your answers stay in your browser and are never collected, stored or shared. It does not replace guidance from your organization's IT, HR or legal team.</p>
-    <p>&copy; 2026 Catherine Jason &middot; Click by Click Offboarding v1.1 &middot; <a href="https://www.catherinejason.com" target="_blank" rel="noopener" style="color: var(--accent);">catherinejason.com</a></p>
+    <p>&copy; 2026 Catherine Jason &middot; Click by Click Offboarding v1.2 &middot; <a href="https://www.catherinejason.com" target="_blank" rel="noopener" style="color: var(--accent);">catherinejason.com</a></p>
   </footer>
 </div>
 <textarea id="copyText" aria-hidden="true" tabindex="-1"></textarea>
@@ -238,6 +241,48 @@ const DEVICE_STATUS = [
 function devTypeLabel(id){ const t=DEVICE_TYPES.find(x=>x.id===id); return t? t.label : "Device"; }
 function devStatusLabel(id){ const s=DEVICE_STATUS.find(x=>x.id===id); return s? s.label : "Still out"; }
 function devName(d){ return devTypeLabel(d.type)+(d.model? " · "+d.model : ""); }
+
+/* ---------- operating system and encryption ---------- */
+const DEVICE_OS = [
+  {id:"windows", label:"Windows", enc:"BitLocker"},
+  {id:"macos", label:"macOS", enc:"FileVault"},
+  {id:"ios", label:"iPhone/iPad", enc:"Built-in encryption"},
+  {id:"android", label:"Android", enc:"Built-in encryption"},
+  {id:"chromeos", label:"ChromeOS", enc:"Built-in encryption"},
+  {id:"other", label:"Other", enc:"Disk encryption"}
+];
+const ENC_STATUS = [{id:"on", label:"On"}, {id:"off", label:"Off"}, {id:"unsure", label:"Not sure"}];
+function osInfo(id){ return DEVICE_OS.find(o=>o.id===id) || DEVICE_OS[DEVICE_OS.length-1]; }
+function osLabel(id){ return osInfo(id).label; }
+function encName(os){ return osInfo(os).enc; }
+function encText(d){ return encName(d.os)+": "+(ENC_STATUS.find(e=>e.id===d.enc)||ENC_STATUS[2]).label; }
+/* accessories have no operating system or storage to encrypt */
+function hasOS(d){ return d.type!=="accessory"; }
+function parseOS(s){
+  s=(s||"").toLowerCase();
+  if(/windows|\bwin ?1[01]\b/.test(s)) return "windows";
+  if(/macos|mac os|os x|\bmac\b/.test(s)) return "macos";
+  if(/ipados|\bios\b|iphone|ipad/.test(s)) return "ios";
+  if(/android/.test(s)) return "android";
+  if(/chrome/.test(s)) return "chromeos";
+  return "";
+}
+function guessOS(model){
+  const s=(model||"").toLowerCase();
+  const p=parseOS(s); if(p) return p;
+  if(/macbook|imac|mac mini|mac studio/.test(s)) return "macos";
+  if(/chromebook/.test(s)) return "chromeos";
+  if(/pixel|galaxy|android/.test(s)) return "android";
+  if(/surface|thinkpad|latitude|elitebook|probook|optiplex|inspiron|ideapad/.test(s)) return "windows";
+  return "other";
+}
+function parseEnc(s){
+  s=(s||"").toLowerCase();
+  if(!s.trim() || /not sure|unsure|unknown|\?/.test(s)) return "unsure";
+  if(/\b(off|no|false|disabled|none|not encrypted)\b/.test(s)) return "off";
+  if(/\b(on|yes|true|enabled|encrypted)\b/.test(s)) return "on";
+  return "unsure";
+}
 /* ---------- Excel (CSV) import and export ---------- */
 function parseCSV(text){
   text = text.replace(/^﻿/,"");
@@ -272,6 +317,8 @@ function importDevicesCSV(text){
   const find=(...res)=>{ for(const re of res){ const k=head.findIndex((h,idx)=>!used.has(idx)&&re.test(h)); if(k>=0){ used.add(k); return k; } } return -1; };
   const iSerial=find(/serial|imei/, /asset|tag/);
   const iType=find(/type|category|kind/);
+  const iOS=find(/\bos\b|operating|platform/);
+  const iEnc=find(/encrypt|bitlocker|filevault/);
   /* columns about the person, not the device, never count as make and model */
   const PERSON=/^(full |first |last )?name$|employee|assigned|user|owner/;
   head.forEach((h,idx)=>{ if(PERSON.test(h) && idx!==iSerial && idx!==iType) used.add(idx); });
@@ -285,6 +332,9 @@ function importDevicesCSV(text){
     const typeText=iType>=0?(r[iType]||""):"";
     const d=newDevice(guessType(typeText||model));
     d.model=model.slice(0,120); d.serial=serial.slice(0,80);
+    const osText=iOS>=0?(r[iOS]||""):"";
+    d.os=parseOS(osText) || guessOS(model);
+    d.enc=iEnc>=0? parseEnc(r[iEnc]) : "unsure";
     state.devices.push(d); n++;
   });
   return n;
@@ -297,9 +347,9 @@ function csvCell(v){
 }
 function devicesCSV(){
   const i=state.intake;
-  const lines=[["Type","Make and model","Serial or asset tag","Status","Status date","Person or role","Last day"].join(",")];
+  const lines=[["Type","OS","Make and model","Serial or asset tag","Encryption","Status","Status date","Person or role","Last day"].join(",")];
   state.devices.forEach(d=>{
-    lines.push([devTypeLabel(d.type), d.model, d.serial, devStatusLabel(d.status),
+    lines.push([devTypeLabel(d.type), hasOS(d)? osLabel(d.os) : "", d.model, d.serial, hasOS(d)? encText(d) : "", devStatusLabel(d.status),
       d.at? new Date(d.at).toLocaleString("en-US") : "", personLabel(), i.lastDay||""].map(csvCell).join(","));
   });
   return "﻿"+lines.join("\r\n");
@@ -310,7 +360,10 @@ function saveFile(text, name, type){
   document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(a.href); a.remove();},500);
 }
 
-function newDevice(type){ return {id:"d"+Date.now().toString(36)+Math.random().toString(36).slice(2,6), type:type||"laptop", model:"", serial:"", status:"out", at:null}; }
+function newDevice(type){ return {id:"d"+Date.now().toString(36)+Math.random().toString(36).slice(2,6), type:type||"laptop", os:"other", enc:"unsure", model:"", serial:"", status:"out", at:null}; }
+/* devices that hold data and get OS-specific steps (everything except accessories) */
+function dataDevices(){ return state.devices.filter(hasOS); }
+function hasDataDev(types){ return state.devices.some(d=>types.indexOf(d.type)!==-1); }
 
 const has = (i, s) => i.systems.indexOf(s) !== -1;
 const TASKS = [
@@ -421,10 +474,11 @@ const TASKS = [
   {id:"f_signer", phase:"after", area:"Finance", when:i=>has(i,"finance"),
     title:"Update bank signers and approvers in writing",
     why:"Banks need written notice to remove an authorized signer."},
-  {id:"l_wipe", phase:"after", area:"Endpoint", when:i=>has(i,"laptop"),
+  /* the generic wipe steps give way to the OS-specific ones once matching devices are listed */
+  {id:"l_wipe", phase:"after", area:"Endpoint", when:i=>has(i,"laptop") && !hasDataDev(["laptop","tablet"]),
     title:"Wipe and reset the laptop or tablet before giving it to someone else",
     why:"Only after the backup is confirmed."},
-  {id:"ph_wipe", phase:"after", area:"Endpoint", when:i=>has(i,"phone"),
+  {id:"ph_wipe", phase:"after", area:"Endpoint", when:i=>has(i,"phone") && !hasDataDev(["phone"]),
     title:"Reset the organization phone before reusing it",
     why:"Only after MFA codes have moved to a new device."},
   {id:"a_review", phase:"after", area:"Identity", when:i=>i.admin,
@@ -449,18 +503,21 @@ function example(){
   const s = blank(); s.example = true;
   s.intake = {role:"Volunteer events lead", type:"volunteer", departure:"planned", lastDay:nextFriday(), doneBy:"Office manager", admin:false,
     systems:["email","cloud","social","sharedpw","laptop","personal","keys"], other:"Event signup form (Google Forms)"};
-  const lap = newDevice("laptop"); lap.model="Dell Latitude 5440"; lap.serial="Asset tag NP-0142";
-  const tab = newDevice("tablet"); tab.id+="b"; tab.model="iPad (check in table at events)"; tab.serial="DMPXK2Q4LM";
+  const lap = newDevice("laptop"); lap.model="Dell Latitude 5440"; lap.serial="Asset tag NP-0142"; lap.os="windows"; lap.enc="on";
+  const tab = newDevice("tablet"); tab.id+="b"; tab.model="iPad (check in table at events)"; tab.serial="DMPXK2Q4LM"; tab.os="ios"; tab.enc="on";
   s.devices = [lap, tab];
   return s;
 }
 /* older saves (v1.0) have no devices, and a hand-edited save can have broken entries: keep only valid devices */
 function cleanDevices(list){
-  const types=DEVICE_TYPES.map(t=>t.id), sts=DEVICE_STATUS.map(t=>t.id), seen=new Set();
+  const types=DEVICE_TYPES.map(t=>t.id), sts=DEVICE_STATUS.map(t=>t.id), oses=DEVICE_OS.map(o=>o.id), encs=ENC_STATUS.map(e=>e.id), seen=new Set();
   return (Array.isArray(list)? list : []).filter(d=>d && typeof d==="object").map((d,n)=>{
     let id=String(d.id||"").replace(/[^A-Za-z0-9_-]/g,"") || "dold"+n;
     while(seen.has(id)) id+="x"; seen.add(id);
     return {id:id, type: types.indexOf(d.type)!==-1? d.type : "other",
+      /* v1.1 saves have no OS or encryption: guess the OS from the model, encryption stays Not sure */
+      os: oses.indexOf(d.os)!==-1? d.os : guessOS(typeof d.model==="string"? d.model : ""),
+      enc: encs.indexOf(d.enc)!==-1? d.enc : "unsure",
       model: typeof d.model==="string"? d.model : "", serial: typeof d.serial==="string"? d.serial : "",
       status: sts.indexOf(d.status)!==-1? d.status : "out", at: typeof d.at==="number"? d.at : null};
   });
@@ -487,13 +544,72 @@ function activeTasks(){
     list.push({id:"other_"+idx+"_"+o.toLowerCase().replace(/[^a-z0-9]+/g,"").slice(0,24), ph:"day", area:"Identity",
       urgent:false, title:"Remove their access to "+o, why:"You listed this system yourself on the intake screen."});
   });
-  if(state.devices.some(d=>d.status==="missing")){
+  const missing = state.devices.filter(d=>d.status==="missing");
+  if(missing.length){
     list.push({id:"dev_missing", ph:"day", area:"Endpoint", urgent:true, alwaysUrgent:true,
       title:"Lock or remotely wipe the missing device and change passwords saved on it",
-      why:"Use your device management tool, Apple Find My or Google Find My Device. Write down what you did in the note."});
+      why:missingWhy(missing)});
   }
+  osTasks().forEach(t=>list.push(Object.assign(t,{ph: phaseOf(t)})));
   const order = {before:0, day:1, after:2};
   return list.map((t,n)=>Object.assign(t,{n})).sort((a,b)=> order[a.ph]-order[b.ph] || (b.urgent?1:0)-(a.urgent?1:0) || a.n-b.n);
+}
+/* OS-specific device steps: one set per OS group, listing which devices it covers.
+   The ids stay the same when devices are renamed, so checked steps stay checked. */
+const OS_GROUPS = [
+  {key:"win", oses:["windows"], steps:[
+    {id:"win_key", phase:"before", area:"Endpoint", title:"Save the BitLocker recovery key before wiping",
+      why:"Copy the key from Entra ID, Intune or their Microsoft account into your IT records. Without it you cannot get files off the drive if it locks after a repair or update."},
+    {id:"win_intune", phase:"after", area:"Identity", title:"Remove {it} from Intune and Entra ID",
+      why:"Retire or wipe it in Intune, then delete the old device record in Entra ID. A leftover record can still count as a trusted device for their account."},
+    {id:"win_reset", phase:"after", area:"Endpoint", title:"Wipe {it} with Reset this PC",
+      why:"Go to Settings, System, Recovery, Reset this PC and choose Remove everything. Do this only after files are backed up and the BitLocker key is saved."}]},
+  {key:"apple", oses:["macos","ios"], steps:[
+    {id:"apple_findmy", phase:"day", urgent:true, alwaysUrgent:true, area:"Endpoint", title:"Turn off Find My and sign out of their Apple ID before wiping",
+      why:"While Find My is on, Activation Lock ties the device to their Apple ID. After a wipe it will not set up again without their password, so do this while they are still here."},
+    {id:"apple_mdm", phase:"after", area:"Identity", title:"Remove {it} from Jamf or Apple Business Manager",
+      why:"If you are keeping it, reassign it to the next person in Jamf. If you are retiring or selling it, release it from Apple Business Manager so it is no longer tied to your organization."},
+    {id:"apple_erase", phase:"after", area:"Endpoint", title:"Wipe {it} with Erase All Content and Settings",
+      why:"On a Mac: System Settings, General, Transfer or Reset. On an iPhone or iPad: Settings, General, Transfer or Reset. Older Intel Macs use macOS Recovery instead."}]},
+  {key:"android", oses:["android"], steps:[
+    {id:"and_account", phase:"day", urgent:true, alwaysUrgent:true, area:"Endpoint", title:"Remove their Google account before resetting",
+      why:"Factory Reset Protection locks a reset phone to the last Google account on it. If their account is still there, nobody can set it up again without their password."},
+    {id:"and_reset", phase:"after", area:"Endpoint", title:"Factory reset {it}",
+      why:"Go to Settings, System, Reset options, Erase all data. Do this only after their Google account is removed and work files are backed up."}]},
+  {key:"cros", oses:["chromeos"], steps:[
+    {id:"cros_enroll", phase:"before", area:"Endpoint", title:"Confirm {it} {is} enrolled in Google Admin",
+      why:"Check Devices, Chrome devices in the Google Admin console. An enrolled Chromebook enrolls itself again after a Powerwash, so it stays under your control."},
+    {id:"cros_powerwash", phase:"after", area:"Endpoint", title:"Powerwash {it}",
+      why:"Go to Settings, Reset settings, Powerwash. This removes their accounts and files, so back up anything in Downloads first."},
+    {id:"cros_deprov", phase:"after", area:"Endpoint", title:"Deprovision {it} in Google Admin if you are retiring {it}",
+      why:"Deprovisioning frees the Chrome license so the Chromebook can be sold or recycled. Mark this not needed if it is staying with your organization."}]},
+  {key:"other", oses:["other"], steps:[
+    {id:"oth_signout", phase:"day", area:"Endpoint", title:"Sign them out of every account on {dev}",
+      why:"Work accounts left signed in can still sync email and files after it changes hands."},
+    {id:"oth_wipe", phase:"after", area:"Endpoint", title:"Wipe and reset {it} before giving {it} to someone else",
+      why:"Follow the maker's reset steps. Do this only after work files are backed up."}]}
+];
+function osTasks(){
+  const out=[];
+  OS_GROUPS.forEach(g=>{
+    const devs=dataDevices().filter(d=>g.oses.indexOf(d.os)!==-1); if(!devs.length) return;
+    const names=devs.map(devName).join(", "), one=devs.length===1;
+    g.steps.forEach(s=>out.push(Object.assign({},s,{
+      id:"os_"+s.id, title:s.title.replace(/\{it\}/g, one?"it":"them").replace(/\{is\}/g, one?"is":"are").replace(/\{dev\}/g, one?"the device":"these devices")+" ("+names+")"})));
+  });
+  return out;
+}
+/* explain how to lock a missing device, using the tools for its OS */
+function missingWhy(missing){
+  const tip={windows:"Windows: remote wipe or retire it in Intune.", macos:"Mac: use Lost Mode in Find My or your device management tool.",
+    ios:"iPhone or iPad: use Lost Mode in Find My or your device management tool.", android:"Android: use Google Find My Device or the Google Admin console.",
+    chromeos:"Chromebook: disable it in the Google Admin console.", other:"Use your device management tool if it has one."};
+  const seen=new Set(); const parts=[];
+  missing.forEach(d=>{ const k=hasOS(d)? d.os : "other"; if(!seen.has(k)){ seen.add(k); parts.push(tip[k]); } });
+  const weak=missing.filter(d=>hasOS(d) && d.enc!=="on").length;
+  const warn = !weak ? "" : missing.length===1 ? " Encryption is off or unknown on it, so treat files on it as exposed."
+    : " Encryption is off or unknown on "+(weak===1?"one of them":"some of them")+", so treat files on "+(weak===1?"that device":"those devices")+" as exposed.";
+  return parts.join(" ")+warn+" Write down what you did in the note.";
 }
 function itemState(id){ return state.items[id] || {status:"open", note:"", at:null} }
 function counts(list){
@@ -574,11 +690,15 @@ function viewIntake(){
 
 function viewDeviceInputs(){
   const rows = state.devices.map(d=>
-    '<div class="devrow" data-dev="'+d.id+'">'+
+    '<div class="devrow'+(hasOS(d)?"":" noos")+'" data-dev="'+d.id+'">'+
       '<select data-dev="'+d.id+'" data-field="type" aria-label="Device type">'+DEVICE_TYPES.map(t=>'<option value="'+t.id+'"'+(d.type===t.id?" selected":"")+'>'+esc(t.label)+'</option>').join("")+'</select>'+
       '<input type="text" data-dev="'+d.id+'" data-field="model" placeholder="Make and model" aria-label="Make and model" value="'+esc(d.model)+'">'+
       '<input type="text" data-dev="'+d.id+'" data-field="serial" placeholder="Serial or asset tag" aria-label="Serial or asset tag" value="'+esc(d.serial)+'">'+
       '<button class="linkbtn" type="button" data-act="removeDevice" data-dev="'+d.id+'">Remove</button>'+
+      (hasOS(d)?
+        '<select data-dev="'+d.id+'" data-field="os" aria-label="Operating system">'+DEVICE_OS.map(o=>'<option value="'+o.id+'"'+(d.os===o.id?" selected":"")+'>OS: '+esc(o.label)+'</option>').join("")+'</select>'+
+        '<select data-dev="'+d.id+'" data-field="enc" aria-label="'+esc(encName(d.os))+'">'+ENC_STATUS.map(e=>'<option value="'+e.id+'"'+(d.enc===e.id?" selected":"")+'>'+esc(encName(d.os))+': '+esc(e.label)+'</option>').join("")+'</select>'
+      : '')+
     '</div>').join("");
   return '<div class="field"><span class="legend">Device inventory</span>'+
     '<small>List every organization device they have. You will check each one back in on the checklist.</small>'+
@@ -586,7 +706,7 @@ function viewDeviceInputs(){
     '<div class="rowbtns"><button class="btn" type="button" data-act="addDevice">Add device</button>'+
     '<button class="btn" type="button" data-act="importCSV">Import from Excel (.csv)</button>'+
     (TOP? '<button class="linkbtn" type="button" data-act="csvTemplate">Download a blank template</button>' : '')+'</div>'+
-    '<small>In Excel, filter your inventory to this person\'s devices, then use File, Save As, CSV. Columns it looks for: Type, Make and model, Serial or asset tag.</small>'+
+    '<small>In Excel, filter your inventory to this person\'s devices, then use File, Save As, CSV. Columns it looks for: Type, OS, Make and model, Serial or asset tag, Encryption.</small>'+
     (importMsg? '<small id="importMsg" role="status" style="color:var(--done)">'+esc(importMsg)+'</small>' : '')+'</div>';
 }
 
@@ -599,7 +719,7 @@ function viewDeviceCheckin(){
   let html = '<div class="phase"><div class="phase-head"><h3>Device check in</h3><span class="when">'+esc(fmt(parseDate(i.lastDay)))+' · '+(d.total-d.out)+'/'+d.total+'</span></div>';
   state.devices.forEach(dev=>{
     html += '<div class="dev s-'+dev.status+'" data-dev="'+dev.id+'">'+
-      '<div><div class="t">'+esc(devName(dev))+'</div><div class="serial">'+(dev.serial? "Serial or asset tag: "+esc(dev.serial) : "No serial or asset tag entered")+'</div></div>'+
+      '<div><div class="t">'+esc(devName(dev))+'</div><div class="serial">'+(hasOS(dev)? esc(osLabel(dev.os))+' · '+esc(encText(dev))+' · ' : '')+(dev.serial? "Serial or asset tag: "+esc(dev.serial) : "No serial or asset tag entered")+'</div></div>'+
       '<div class="seg" role="radiogroup" aria-label="Status for '+esc(devName(dev))+'">'+
         DEVICE_STATUS.map(s=>'<label><input type="radio" name="devst_'+dev.id+'" data-devstatus="'+dev.id+'" value="'+s.id+'"'+(dev.status===s.id?" checked":"")+'>'+esc(s.label)+'</label>').join("")+
       '</div>'+
@@ -663,7 +783,7 @@ function recordText(){
   if(state.devices.length){
     lines.push(""); lines.push("DEVICE INVENTORY");
     state.devices.forEach(d=>{
-      lines.push("["+devStatusLabel(d.status).toUpperCase()+(d.at?" "+fmtStamp(d.at):"")+"] "+devName(d)+" | Serial or asset tag: "+(d.serial||"Not entered"));
+      lines.push("["+devStatusLabel(d.status).toUpperCase()+(d.at?" "+fmtStamp(d.at):"")+"] "+devName(d)+(hasOS(d)? " | OS: "+osLabel(d.os)+" | "+encText(d) : "")+" | Serial or asset tag: "+(d.serial||"Not entered"));
     });
   }
   return lines.join("\n");
@@ -683,7 +803,7 @@ function viewRecord(){
   let devRows = "";
   state.devices.forEach(dev=>{
     const cls = dev.status==="out" ? "open" : dev.status==="missing" ? "missing" : "done";
-    devRows += '<tr><td>'+esc(devTypeLabel(dev.type))+'</td><td>'+esc(dev.model||"Not entered")+'</td><td class="mono">'+esc(dev.serial||"Not entered")+'</td><td><span class="st '+cls+'">'+esc(devStatusLabel(dev.status))+(dev.at?" "+esc(fmtStamp(dev.at)):"")+'</span></td></tr>';
+    devRows += '<tr><td>'+esc(devTypeLabel(dev.type))+'</td><td>'+(hasOS(dev)? esc(osLabel(dev.os)) : '<span class="muted">n/a</span>')+'</td><td>'+esc(dev.model||"Not entered")+'</td><td class="mono">'+esc(dev.serial||"Not entered")+'</td><td>'+(hasOS(dev)? esc(encText(dev)) : '<span class="muted">n/a</span>')+'</td><td><span class="st '+cls+'">'+esc(devStatusLabel(dev.status))+(dev.at?" "+esc(fmtStamp(dev.at)):"")+'</span></td></tr>';
   });
   const openMsg = [];
   if(c.open) openMsg.push(c.open+' step'+(c.open===1?"":"s"));
@@ -701,7 +821,7 @@ function viewRecord(){
     '<div class="kv"><span>Open</span><b>'+c.open+'</b></div>'+
   '</div>'+
   '<div class="tablewrap"><table><thead><tr><th>When</th><th>Step</th><th>Status</th><th>Note</th></tr></thead><tbody>'+rows+'</tbody></table></div>'+
-  (state.devices.length? '<h3>Device inventory</h3><div class="tablewrap"><table><thead><tr><th>Type</th><th>Make and model</th><th>Serial or asset tag</th><th>Status</th></tr></thead><tbody>'+devRows+'</tbody></table></div>' : "")+
+  (state.devices.length? '<h3>Device inventory</h3><div class="tablewrap"><table><thead><tr><th>Type</th><th>OS</th><th>Make and model</th><th>Serial or asset tag</th><th>Encryption</th><th>Status</th></tr></thead><tbody>'+devRows+'</tbody></table></div>' : "")+
   '<div class="rowbtns"><button class="btn primary" type="button" data-act="copy" id="btnCopy">Copy record</button>'+
   (TOP? '<button class="btn" type="button" data-act="download">Download as text file</button>'+(state.devices.length?'<button class="btn" type="button" data-act="exportCSV">Download devices for Excel (.csv)</button>':'')+'<button class="btn" type="button" data-act="print">Print</button>' : '')+
   '</div></section>';
@@ -734,7 +854,16 @@ view.addEventListener("change",e=>{
   else if(el.name==="departure") i.departure=el.value;
   else if(el.name==="admin") i.admin = el.value==="yes";
   else if(el.id==="lastDay") i.lastDay=el.value;
-  else if(el.dataset.dev && el.dataset.field==="type"){ const dv=state.devices.find(x=>x.id===el.dataset.dev); if(dv) dv.type=el.value; }
+  else if(el.dataset.dev && ["type","os","enc"].indexOf(el.dataset.field)!==-1){
+    const dv=state.devices.find(x=>x.id===el.dataset.dev); if(!dv) return;
+    dv[el.dataset.field]=el.value; save();
+    /* type and OS change which fields show and the encryption name, so redraw and keep focus */
+    if(el.dataset.field!=="enc"){
+      const f=el.dataset.field; const y=window.scrollY; render(); window.scrollTo(0,y);
+      const again=view.querySelector('select[data-dev="'+dv.id+'"][data-field="'+f+'"]'); if(again) again.focus({preventScroll:true});
+    } else { renderCard(); updateCount(); }
+    return;
+  }
   else if(el.dataset.devstatus){
     const dv=state.devices.find(x=>x.id===el.dataset.devstatus); if(!dv) return;
     dv.status=el.value; dv.at = Date.now();
@@ -764,7 +893,7 @@ view.addEventListener("click",e=>{
     return;
   }
   if(act==="exportCSV"){ saveFile(devicesCSV(), "device-checkin-"+(state.intake.lastDay||isoDate(new Date()))+".csv", "text/csv;charset=utf-8"); return; }
-  if(act==="csvTemplate"){ saveFile("﻿Type,Make and model,Serial or asset tag\r\nLaptop,Dell Latitude 5440,NP-0142\r\n", "device-inventory-template.csv", "text/csv;charset=utf-8"); return; }
+  if(act==="csvTemplate"){ saveFile("﻿Type,OS,Make and model,Serial or asset tag,Encryption\r\nLaptop,Windows,Dell Latitude 5440,NP-0142,On\r\n", "device-inventory-template.csv", "text/csv;charset=utf-8"); return; }
   if(act==="importCSV"){
     const fi=document.createElement("input"); fi.type="file"; fi.accept=".csv,text/csv";
     fi.addEventListener("change",()=>{
