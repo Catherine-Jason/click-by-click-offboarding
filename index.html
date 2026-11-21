@@ -509,7 +509,7 @@ const has = (i, s) => i.systems.indexOf(s) !== -1;
 const TASKS = [
   {id:"u_timing", phase:"before", urgent:true, area:"Response", when:i=>i.departure==="unplanned",
     title:"Turn off access at the same time they are told they are leaving",
-    why:"A person who is upset and still has working logins is the biggest risk. Do the urgent steps below first."},
+    why:"Someone who is upset and still has working logins can do a lot of damage quickly. Do the urgent steps below first."},
   {id:"inv", phase:"before", area:"Identity", when:()=>true,
     title:"List every account, system and device they use",
     why:"You cannot remove access you do not know about. Ask their supervisor and check the systems you checked above."},
@@ -711,7 +711,7 @@ const TAGS = {
   ferpa:{label:"FERPA 34 CFR Part 99", url:ECFR+"title-34/subtitle-A/part-99", about:"Family Educational Rights and Privacy"}
 };
 const REGS = [
-  {id:"hipaa", label:"Health information (HIPAA)", hint:"Patient or client health records, counseling or case notes"},
+  {id:"hipaa", label:"Health information (HIPAA)", hint:"Only if you are a health care provider, health plan, or work for one as a business associate."},
   {id:"pci", label:"Card payments (PCI DSS)", hint:"Donations, fees or sales by credit or debit card"},
   {id:"ferpa", label:"Student records (FERPA)", hint:"Education records from a school or district you work with"},
   {id:"hold", label:"There is a lawsuit or investigation involving this person (legal hold)", hint:"Pauses every wipe and delete step"}
@@ -777,7 +777,7 @@ const LEARN = {
   k_disable:["A badge or alarm code that still works lets someone into the building after hours. Turning it off closes physical access the same day.",["aa05","cis6"]],
   groups:["Group chats, mailing lists and calendars often share plans and client details. Removing them keeps internal talk internal.",["aa05","cis6"]],
   notes:["Written passwords and backup codes work just like a login. Collecting them closes access that does not show up in any system.",["aa01","cis5"]],
-  check30:["Accounts sometimes get turned back on by a sync, a vendor or a mistake. A check after 30 days confirms access really stayed off.",["aa05","cis5"]],
+  check30:["Accounts sometimes get turned back on by a sync, a vendor or a mistake. A check after 30 days confirms access stayed off.",["aa05","cis5"]],
   e_after:["Archiving the mailbox keeps its history in case you need it later. Freeing the license stops you paying for an account nobody uses.",["am08","aa01"]],
   f_signer:["Banks keep their own list of who can sign and approve. Until you update it in writing, a former signer may still be on file.",["aa05"]],
   l_wipe:["A wipe removes their files and saved logins before the device goes to someone new. Doing it the right way protects both the person and your organization.",["sp88","am08","cis1"]],
@@ -802,9 +802,9 @@ const LEARN = {
   hold_keep:["A legal hold means information that could matter in a case has to be kept exactly as it is. Wiping or deleting it, even as routine cleanup, can lead to serious penalties.",[]],
   pci_revoke:["PCI DSS says access for people who leave has to be removed right away, not at the end of the week. Card systems are a common target, so this one cannot wait.",["pci","aa05","cis6"]],
   pci_tokens:["Card readers, tokens and payment key cards are physical access to your payment systems. A password change does not turn them off.",["pci","cis1"]],
-  hipaa_term:["HIPAA expects written steps for ending access to health information when someone leaves. Doing it the same day protects your clients and shows you followed your own policy.",["h308","aa05","cis6"]],
+  hipaa_term:["HIPAA asks covered organizations to have steps for ending access to health information when someone leaves. Doing it the same day protects your clients and shows you followed your own policy.",["h308","aa05","cis6"]],
   hipaa_media:["Health information has to be removed from devices and media before they are reused or thrown away. Writing down how and when gives you proof if anyone asks.",["h310","sp88"]],
-  ferpa_access:["FERPA limits student records to people with a real educational reason to see them. When someone leaves, that reason ends, so their access should end too.",["ferpa","aa05","cis6"]],
+  ferpa_access:["FERPA limits student records to people with a legitimate educational interest in them. When someone leaves, that interest ends, so their access should end too.",["ferpa","aa05","cis6"]],
   ferpa_copies:["Student lists in a personal inbox or on a personal phone are still student records. Asking for them to be deleted and noting it here protects the students.",["ferpa","am08"]]
 };
 function learnFor(t){
