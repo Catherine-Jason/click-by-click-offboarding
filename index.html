@@ -138,11 +138,30 @@ tr:last-child td{border-bottom:0}
 /* device inventory */
 select{font:inherit; color:var(--ink); background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:9px 11px; width:100%}
 .devlist{display:flex; flex-direction:column; gap:8px}
-.devrow{display:grid; grid-template-columns:15em 1fr 1fr auto; grid-template-areas:"type model serial rm" "os enc enc ."; gap:8px; align-items:center; border:1px solid var(--line); border-radius:8px; padding:8px; background:var(--bg)}
-.devrow.noos{grid-template-areas:"type model serial rm"}
-.devrow [data-field=type]{grid-area:type} .devrow [data-field=model]{grid-area:model} .devrow [data-field=serial]{grid-area:serial}
-.devrow [data-field=os]{grid-area:os} .devrow [data-field=enc]{grid-area:enc} .devrow [data-act=removeDevice]{grid-area:rm}
-.devrow input[type=text],.devrow select{background:var(--surface)}
+.devrow{display:grid; grid-template-columns:15em 1fr 1fr auto; grid-template-areas:"type model serial rm" "os assigned assigned ." "more more more more"; gap:8px; align-items:center; border:1px solid var(--line); border-radius:8px; padding:8px; background:var(--bg)}
+.devrow.noos{grid-template-areas:"type model serial rm" "assigned assigned assigned ." "more more more more"}
+.devrow > [data-field=type]{grid-area:type} .devrow > [data-field=model]{grid-area:model} .devrow > [data-field=serial]{grid-area:serial}
+.devrow > [data-field=os]{grid-area:os} .devrow > [data-field=assignedTo]{grid-area:assigned} .devrow > [data-act=removeDevice]{grid-area:rm} .devrow > .devmore{grid-area:more}
+.devrow input,.devrow select,.devrow textarea{background:var(--surface)}
+input[type=date]{color-scheme:dark}
+/* "More details" per device */
+.devmore summary{cursor:pointer; color:var(--accent); font-weight:600; font-size:13px; padding:2px 0; width:max-content}
+.devmore[open] summary{margin-bottom:8px}
+.ddsec{border:1px solid var(--line); border-radius:8px; padding:8px 10px 10px; margin:0 0 8px; min-width:0}
+.ddsec legend{font-family:var(--f-mono); font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); padding:0 4px}
+.ddgrid{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px}
+.ddgrid .field label,.ddgrid .legend{font-size:12px; color:var(--muted); font-weight:600}
+.ddgrid .field.wide{grid-column:1 / -1}
+.ddgrid textarea{min-height:44px}
+.accs{display:flex; gap:12px; flex-wrap:wrap; font-size:14px} .accs label{display:flex; gap:6px; align-items:center; cursor:pointer} .accs input{accent-color:var(--accent)}
+.warntext{color:var(--warn); font-size:12.5px; font-weight:600} .warntext:empty{display:none}
+.ddates{display:flex; flex-wrap:wrap; gap:4px 14px; font-size:12.5px} .ddates b{color:var(--muted); font-weight:500}
+.tag.stale{border-color:var(--warn); color:var(--warn)}
+table.wide{min-width:1040px}
+tr.stale td{background:var(--warn-soft)}
+.devdetails{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px}
+.ddcard{border:1px solid var(--line); border-radius:10px; padding:10px 12px; font-size:13px; min-width:0}
+.ddcard dl{display:grid; grid-template-columns:auto 1fr; gap:3px 12px; margin:6px 0 0} .ddcard dt{color:var(--muted)} .ddcard dd{margin:0; overflow-wrap:anywhere}
 .devempty{border:1px dashed var(--line); border-radius:8px; padding:12px; font-size:14px; color:var(--muted)}
 .dev{display:flex; flex-direction:column; gap:8px; padding:12px; border:1px solid var(--line); border-radius:10px; background:var(--surface)}
 .dev.s-returned,.dev.s-wiped{background:var(--done-soft); border-color:transparent}
@@ -155,8 +174,9 @@ footer{font-size:12.5px; color:var(--muted); display:flex; flex-direction:column
 
 @media (max-width:620px){
   .grid2,.systems,.recordhead{grid-template-columns:1fr}
-  .devrow{grid-template-columns:1fr auto; grid-template-areas:"type rm" "model model" "serial serial" "os os" "enc enc"}
-  .devrow.noos{grid-template-areas:"type rm" "model model" "serial serial"}
+  .devrow{grid-template-columns:1fr auto; grid-template-areas:"type rm" "os os" "model model" "serial serial" "assigned assigned" "more more"}
+  .devrow.noos{grid-template-areas:"type rm" "model model" "serial serial" "assigned assigned" "more more"}
+  .ddgrid,.devdetails{grid-template-columns:1fr}
   nav.steps button .lbl-long{display:none}
   .card{grid-template-columns:auto 1fr}
   .card .status{grid-column:1 / -1; justify-self:start}
@@ -200,7 +220,7 @@ footer{font-size:12.5px; color:var(--muted); display:flex; flex-direction:column
 
   <footer>
     <p><strong>Disclaimer:</strong> This tool is provided for educational purposes only. Your answers stay in your browser and are never collected, stored or shared. It does not replace guidance from your organization's IT, HR or legal team.</p>
-    <p>&copy; 2026 Catherine Jason &middot; Click by Click Offboarding v1.2 &middot; <a href="https://www.catherinejason.com" target="_blank" rel="noopener" style="color: var(--accent);">catherinejason.com</a></p>
+    <p>&copy; 2026 Catherine Jason &middot; Click by Click Offboarding v1.3 &middot; <a href="https://www.catherinejason.com" target="_blank" rel="noopener" style="color: var(--accent);">catherinejason.com</a></p>
   </footer>
 </div>
 <textarea id="copyText" aria-hidden="true" tabindex="-1"></textarea>
@@ -309,32 +329,112 @@ function guessType(s){
   if(/monitor|dock|keyboard|mouse|headset|webcam|charger|accessor|printer/.test(s)) return "accessory";
   return "other";
 }
+/* ---------- extra device details (v1.3) ----------
+   One table drives the "More details" form, loading, CSV import and export, and the text record.
+   re = header patterns for CSV import, most specific first. */
+const DEV_SECTIONS = [["device","Device"],["assign","Assignment"],["security","Security"],["off","Offboarding"],["life","Lifecycle"]];
+const YN = [["yes","Yes",/^(y|yes|true|on|1|enabled|installed)$/],["no","No",/^(n|no|false|off|0|disabled|none)$/]];
+const DEV_FIELDS = [
+  {k:"hostname", sec:"device", label:"Device name or hostname", kind:"text", re:[/hostname|host name|computer name|device name or hostname/]},
+  {k:"osVersion", sec:"device", label:"OS version", kind:"text", needsOS:true, re:[/os version|os build|^version$/]},
+  {k:"condition", sec:"device", label:"Condition", kind:"select", opts:[["good","Good",/good|working|ok/],["damaged","Damaged",/damag|broken|crack/],["repair","Needs repair",/repair/]], re:[/condition/]},
+  {k:"assignedTo", sec:"assign", label:"Assigned to", kind:"text", main:true, re:[/assigned to|assignee/,/user|employee|owner|custodian/,/^(full )?name$/]},
+  {k:"assignedBy", sec:"assign", label:"Assigned by", kind:"text", re:[/assigned by|issued by/]},
+  {k:"dateAssigned", sec:"assign", label:"Date assigned", kind:"date", re:[/date assigned|assigned (on|date)|issue date|date issued/]},
+  {k:"dept", sec:"assign", label:"Department or program", kind:"text", re:[/department|dept|program|team/]},
+  {k:"location", sec:"assign", label:"Location", kind:"text", re:[/location|site|building/]},
+  {k:"enc", sec:"security", label:"Encryption", kind:"enc", needsOS:true},
+  {k:"patched", sec:"security", label:"Last updated or patched", kind:"date", needsOS:true, re:[/patch|last update/]},
+  {k:"updReq", sec:"security", label:"Update requested", kind:"yn", needsOS:true, re:[/^update requested\??$/]},
+  {k:"updReqDate", sec:"security", label:"Update requested on", kind:"date", needsOS:true, re:[/update requested (on|date)|request(ed)? date/]},
+  {k:"mdm", sec:"security", label:"Managed in MDM", kind:"yn", needsOS:true, re:[/mdm|managed|intune|jamf|enrolled/]},
+  {k:"av", sec:"security", label:"Antivirus on", kind:"yn", needsOS:true, re:[/antivirus|anti-virus|\bav\b|defender|endpoint protection/]},
+  {k:"due", sec:"off", label:"Return due", kind:"date", re:[/return due|due date|^due$/]},
+  {k:"returned", sec:"off", label:"Date returned", kind:"date", re:[/date returned|returned (on|date)|^returned$|return date/]},
+  {k:"receivedBy", sec:"off", label:"Received by", kind:"text", re:[/received by|checked in by/]},
+  {k:"acc", sec:"off", label:"Accessories returned", kind:"acc", re:[/accessor/]},
+  {k:"backedUp", sec:"off", label:"Date backed up", kind:"date", needsOS:true, re:[/backed up|backup/]},
+  {k:"wiped", sec:"off", label:"Date wiped", kind:"date", needsOS:true, re:[/date wiped|wiped (on|date)|wipe date/]},
+  {k:"wipeMethod", sec:"off", label:"Wipe method", kind:"select", needsOS:true, opts:[["factory","Factory reset",/factory|reset|erase|powerwash/],["mdm","MDM wipe",/mdm|intune|jamf|remote|admin/]], re:[/wipe method|wipe type/]},
+  {k:"wipedBy", sec:"off", label:"Wiped by", kind:"text", needsOS:true, re:[/wiped by/]},
+  {k:"next", sec:"off", label:"Next step", kind:"select", opts:[["storage","In storage",/storage|stored|shelf/],["reassigned","Reassigned to",/reassign/],["recycled","Recycled",/recycl/],["disposed","Disposed",/dispos|destroy|shred/]], re:[/next step|disposition|final status/]},
+  {k:"reassignedTo", sec:"off", label:"Reassigned to", kind:"text", showIf:d=>d.next==="reassigned", re:[/reassigned to/]},
+  {k:"cert", sec:"off", label:"Disposal certificate", kind:"yn", showIf:d=>d.next==="disposed", re:[/certificate/]},
+  {k:"purchase", sec:"life", label:"Purchase date", kind:"date", re:[/purchase|bought|acquired/]},
+  {k:"warranty", sec:"life", label:"Warranty end", kind:"date", re:[/warranty/]},
+  {k:"notes", sec:"life", label:"Notes", kind:"textarea", re:[/^notes?$|comment|remark/]}
+];
+const ACCESSORIES = [["charger","Charger"],["case","Case"],["dock","Dock"]];
+/* import order: specific headers before broad ones ("Reassigned to" before "Assigned to", "Update requested on" before "Update requested") */
+const IMPORT_ORDER = ["osVersion","hostname","reassignedTo","assignedBy","dateAssigned","assignedTo","dept","location","updReqDate","updReq","patched","mdm","av",
+  "due","returned","receivedBy","acc","backedUp","wipeMethod","wipedBy","wiped","cert","next","purchase","warranty","condition","notes"];
+function fieldDef(k){ return DEV_FIELDS.find(f=>f.k===k); }
+function blankDetails(){ const o={}; DEV_FIELDS.forEach(f=>{ if(f.kind==="enc") return; o[f.k] = f.kind==="acc"? {charger:false, case:false, dock:false} : ""; }); return o; }
+function todayISO(){ return isoDate(new Date()); }
+function fmtShort(iso){ const d=parseDate(iso); return d? d.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}) : ""; }
+/* the return due date follows the last day until someone changes it */
+function dueOf(d){ return d.due || state.intake.lastDay || ""; }
+function patchAge(d){ if(!hasOS(d) || !d.patched) return null; const p=parseDate(d.patched); if(!p) return null; const t=new Date(); t.setHours(0,0,0,0); return Math.round((t-p)/86400000); }
+function patchStale(d){ const a=patchAge(d); return a!==null && a>30; }
+function patchMsg(d){ return patchStale(d)? "Not updated in "+patchAge(d)+" days. Install updates before it goes to someone else." : ""; }
+function fieldVisible(d,f){ return (!f.needsOS || hasOS(d)) && (!f.showIf || f.showIf(d)); }
+/* a field's value as plain text for the record and CSV ("" when empty) */
+function fieldText(d,f,forCSV){
+  const v = f.k==="due"? dueOf(d) : d[f.k];
+  if(f.kind==="enc") return encText(d);
+  if(f.kind==="acc") return ACCESSORIES.filter(a=>v&&v[a[0]]).map(a=>a[1]).join(", ");
+  if(f.kind==="date") return forCSV? (v||"") : fmtShort(v);
+  if(f.kind==="yn"){ const o=YN.find(x=>x[0]===v); return o? o[1] : ""; }
+  if(f.kind==="select"){ const o=f.opts.find(x=>x[0]===v); return o? o[1] : ""; }
+  return v||"";
+}
+function parseDateIn(s){
+  s=(s||"").trim(); if(!s) return "";
+  let m=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/); if(m) return m[1]+"-"+pad(+m[2])+"-"+pad(+m[3]);
+  m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2}|\d{4})\b/); if(m){ const y=m[3].length===2? 2000+(+m[3]) : +m[3]; return y+"-"+pad(+m[1])+"-"+pad(+m[2]); }
+  const t=Date.parse(s); return isNaN(t)? "" : isoDate(new Date(t));
+}
+function setFromText(d,f,s){
+  s=(s||"").trim(); const low=s.toLowerCase();
+  if(f.kind==="date") d[f.k]=parseDateIn(s);
+  else if(f.kind==="yn"){ const o=YN.find(x=>x[2].test(low)); d[f.k]=o? o[0] : ""; }
+  else if(f.kind==="select"){ const o=f.opts.find(x=>x[2].test(low)); d[f.k]=o? o[0] : ""; }
+  else if(f.kind==="acc") d[f.k]={charger:/charger|power/.test(low), case:/\bcase\b|cover|sleeve/.test(low), dock:/dock/.test(low)};
+  else d[f.k]=s.slice(0, f.kind==="textarea"? 1000 : 200);
+}
+function parseStatus(s){ s=(s||"").toLowerCase(); return /missing|lost|stolen/.test(s)? "missing" : /wiped|ready/.test(s)? "wiped" : /returned|received/.test(s)? "returned" : /still out|^out$/.test(s)? "out" : ""; }
+
 function importDevicesCSV(text){
   const rows=parseCSV(text); if(rows.length<2) return 0;
   const head=rows[0].map(h=>h.trim().toLowerCase());
   const used=new Set();
   /* try each pattern in order and skip columns already matched */
   const find=(...res)=>{ for(const re of res){ const k=head.findIndex((h,idx)=>!used.has(idx)&&re.test(h)); if(k>=0){ used.add(k); return k; } } return -1; };
+  const col={}; IMPORT_ORDER.forEach(k=>{ col[k]=find(...fieldDef(k).re); });
   const iSerial=find(/serial|imei/, /asset|tag/);
   const iType=find(/type|category|kind/);
   const iOS=find(/\bos\b|operating|platform/);
   const iEnc=find(/encrypt|bitlocker|filevault/);
+  const iStatus=find(/^status$|check.?in status|device status/);
   /* columns about the person, not the device, never count as make and model */
   const PERSON=/^(full |first |last )?name$|employee|assigned|user|owner/;
-  head.forEach((h,idx)=>{ if(PERSON.test(h) && idx!==iSerial && idx!==iType) used.add(idx); });
+  head.forEach((h,idx)=>{ if(PERSON.test(h)) used.add(idx); });
   const iModel=find(/make|model/, /description|item|name/, /device/);
   if(iModel<0 && iSerial<0) return -1;
   let n=0;
   rows.slice(1).forEach(r=>{
-    const model=iModel>=0?(r[iModel]||"").trim():"";
-    const serial=iSerial>=0?(r[iSerial]||"").trim():"";
+    const cell=i=>i>=0? (r[i]||"").trim() : "";
+    const model=cell(iModel), serial=cell(iSerial);
     if(!model && !serial) return;
-    const typeText=iType>=0?(r[iType]||""):"";
-    const d=newDevice(guessType(typeText||model));
+    const d=newDevice(guessType(cell(iType)||model));
     d.model=model.slice(0,120); d.serial=serial.slice(0,80);
-    const osText=iOS>=0?(r[iOS]||""):"";
-    d.os=parseOS(osText) || guessOS(model);
-    d.enc=iEnc>=0? parseEnc(r[iEnc]) : "unsure";
+    IMPORT_ORDER.forEach(k=>{ if(col[k]>=0) setFromText(d, fieldDef(k), cell(col[k])); });
+    /* OS from the OS column, else from the OS version ("Windows 11 23H2"), else guessed from the model */
+    d.os=parseOS(cell(iOS)) || parseOS(d.osVersion) || guessOS(model);
+    d.enc=iEnc>=0? parseEnc(cell(iEnc)) : "unsure";
+    const st=parseStatus(cell(iStatus)); if(st) d.status=st;
+    /* "Reassigned to Pat" in the Next step column fills Reassigned to */
+    if(d.next==="reassigned" && !d.reassignedTo){ const m=cell(col.next).match(/reassigned to\s+(.+)/i); if(m) d.reassignedTo=m[1].slice(0,200); }
     state.devices.push(d); n++;
   });
   return n;
@@ -345,14 +445,31 @@ function csvCell(v){
   if(/^[=+\-@\t\r]/.test(s)) s="'"+s;
   return /[",\n\r]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s;
 }
+/* CSV columns, in order. Dates go out as YYYY-MM-DD so Excel reads them as dates. */
+const CSV_FIELD_ORDER = ["osVersion","hostname","@model","@serial","condition","assignedTo","assignedBy","dateAssigned","dept","location","enc","patched","updReq","updReqDate","mdm","av",
+  "due","returned","receivedBy","acc","backedUp","wiped","wipeMethod","wipedBy","next","reassignedTo","cert","purchase","warranty","notes"];
+function csvHeader(){ return ["Type","OS"].concat(CSV_FIELD_ORDER.map(k=> k==="@model"? "Make and model" : k==="@serial"? "Serial or asset tag" : fieldDef(k).label)); }
+function csvDeviceCells(d){
+  return [devTypeLabel(d.type), hasOS(d)? osLabel(d.os) : ""].concat(CSV_FIELD_ORDER.map(k=>{
+    if(k==="@model") return d.model; if(k==="@serial") return d.serial;
+    const f=fieldDef(k); return fieldVisible(d,f)? fieldText(d,f,true) : "";
+  }));
+}
 function devicesCSV(){
   const i=state.intake;
-  const lines=[["Type","OS","Make and model","Serial or asset tag","Encryption","Status","Status date","Person or role","Last day"].join(",")];
+  const lines=[csvHeader().concat(["Status","Status date","Person or role","Last day"]).map(csvCell).join(",")];
   state.devices.forEach(d=>{
-    lines.push([devTypeLabel(d.type), hasOS(d)? osLabel(d.os) : "", d.model, d.serial, hasOS(d)? encText(d) : "", devStatusLabel(d.status),
-      d.at? new Date(d.at).toLocaleString("en-US") : "", personLabel(), i.lastDay||""].map(csvCell).join(","));
+    lines.push(csvDeviceCells(d).concat([devStatusLabel(d.status), d.at? new Date(d.at).toLocaleString("en-US") : "", personLabel(), i.lastDay||""]).map(csvCell).join(","));
   });
   return "﻿"+lines.join("\r\n");
+}
+function templateCSV(){
+  const ex={"Type":"Laptop","OS":"Windows","OS version":"Windows 11 24H2","Device name or hostname":"NP-LT-0142","Make and model":"Dell Latitude 5440","Serial or asset tag":"NP-0142",
+    "Condition":"Good","Assigned to":"Program assistant","Assigned by":"Office manager","Date assigned":"2025-03-03","Department or program":"Youth programs","Location":"Main office",
+    "Encryption":"BitLocker: On","Last updated or patched":"2026-11-01","Update requested":"No","Managed in MDM":"Yes","Antivirus on":"Yes","Accessories returned":"Charger, Dock","Next step":"In storage",
+    "Purchase date":"2024-01-15","Warranty end":"2027-01-15"};
+  const h=csvHeader();
+  return "﻿"+h.map(csvCell).join(",")+"\r\n"+h.map(c=>csvCell(ex[c]||"")).join(",")+"\r\n";
 }
 function saveFile(text, name, type){
   const blob=new Blob([text],{type:type});
@@ -360,7 +477,7 @@ function saveFile(text, name, type){
   document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(a.href); a.remove();},500);
 }
 
-function newDevice(type){ return {id:"d"+Date.now().toString(36)+Math.random().toString(36).slice(2,6), type:type||"laptop", os:"other", enc:"unsure", model:"", serial:"", status:"out", at:null}; }
+function newDevice(type){ return Object.assign({id:"d"+Date.now().toString(36)+Math.random().toString(36).slice(2,6), type:type||"laptop", os:"other", enc:"unsure", model:"", serial:"", status:"out", at:null}, blankDetails()); }
 /* devices that hold data and get OS-specific steps (everything except accessories) */
 function dataDevices(){ return state.devices.filter(hasOS); }
 function hasDataDev(types){ return state.devices.some(d=>types.indexOf(d.type)!==-1); }
@@ -505,6 +622,11 @@ function example(){
     systems:["email","cloud","social","sharedpw","laptop","personal","keys"], other:"Event signup form (Google Forms)"};
   const lap = newDevice("laptop"); lap.model="Dell Latitude 5440"; lap.serial="Asset tag NP-0142"; lap.os="windows"; lap.enc="on";
   const tab = newDevice("tablet"); tab.id+="b"; tab.model="iPad (check in table at events)"; tab.serial="DMPXK2Q4LM"; tab.os="ios"; tab.enc="on";
+  const ago = n => isoDate(addDays(new Date(), -n));
+  Object.assign(lap, {hostname:"NP-LT-0142", osVersion:"Windows 11 24H2", condition:"good", assignedTo:"Volunteer events lead", assignedBy:"Office manager",
+    dateAssigned:"2025-03-03", dept:"Events", location:"Main office", patched:ago(45), mdm:"yes", av:"yes", purchase:"2024-01-15", warranty:"2027-01-15"});
+  Object.assign(tab, {osVersion:"iPadOS 18", condition:"good", assignedTo:"Volunteer events lead", assignedBy:"Office manager", dateAssigned:"2025-04-12",
+    dept:"Events", location:"Event check in table", patched:ago(6), mdm:"yes", purchase:"2024-09-01"});
   s.devices = [lap, tab];
   return s;
 }
@@ -514,13 +636,27 @@ function cleanDevices(list){
   return (Array.isArray(list)? list : []).filter(d=>d && typeof d==="object").map((d,n)=>{
     let id=String(d.id||"").replace(/[^A-Za-z0-9_-]/g,"") || "dold"+n;
     while(seen.has(id)) id+="x"; seen.add(id);
-    return {id:id, type: types.indexOf(d.type)!==-1? d.type : "other",
+    return Object.assign({id:id, type: types.indexOf(d.type)!==-1? d.type : "other",
       /* v1.1 saves have no OS or encryption: guess the OS from the model, encryption stays Not sure */
       os: oses.indexOf(d.os)!==-1? d.os : guessOS(typeof d.model==="string"? d.model : ""),
       enc: encs.indexOf(d.enc)!==-1? d.enc : "unsure",
       model: typeof d.model==="string"? d.model : "", serial: typeof d.serial==="string"? d.serial : "",
-      status: sts.indexOf(d.status)!==-1? d.status : "out", at: typeof d.at==="number"? d.at : null};
+      status: sts.indexOf(d.status)!==-1? d.status : "out", at: typeof d.at==="number"? d.at : null}, cleanDetails(d));
   });
+}
+/* v1.2 and older saves have none of the detail fields: fill blanks, and drop anything with the wrong shape */
+function cleanDetails(d){
+  const o=blankDetails();
+  DEV_FIELDS.forEach(f=>{
+    const v=d[f.k];
+    if(f.kind==="enc") return;
+    if(f.kind==="acc"){ if(v && typeof v==="object") ACCESSORIES.forEach(a=>{ o.acc[a[0]] = v[a[0]]===true; }); }
+    else if(f.kind==="date"){ if(typeof v==="string" && /^\d{4}-\d{2}-\d{2}$/.test(v)) o[f.k]=v; }
+    else if(f.kind==="yn"){ if(YN.some(x=>x[0]===v)) o[f.k]=v; }
+    else if(f.kind==="select"){ if(f.opts.some(x=>x[0]===v)) o[f.k]=v; }
+    else if(typeof v==="string") o[f.k]=v.slice(0, f.kind==="textarea"? 1000 : 200);
+  });
+  return o;
 }
 function load(){ try{ const raw=localStorage.getItem(KEY); if(raw){ const s=JSON.parse(raw); if(s && s.intake){ if(!s.items||typeof s.items!=="object") s.items={}; if(!Array.isArray(s.intake.systems)) s.intake.systems=[]; s.devices=cleanDevices(s.devices); return s; } } }catch(e){} return null }
 function save(){ try{ localStorage.setItem(KEY, JSON.stringify(state)) }catch(e){} }
@@ -528,6 +664,7 @@ function save(){ try{ localStorage.setItem(KEY, JSON.stringify(state)) }catch(e)
 let state = load() || example();
 let confirmNew = false;
 let importMsg = "";
+const openMore = new Set(); /* devices whose "More details" is open, kept across redraws */
 
 function phaseOf(t){
   if(state.intake.departure==="unplanned"){
@@ -696,9 +833,10 @@ function viewDeviceInputs(){
       '<input type="text" data-dev="'+d.id+'" data-field="serial" placeholder="Serial or asset tag" aria-label="Serial or asset tag" value="'+esc(d.serial)+'">'+
       '<button class="linkbtn" type="button" data-act="removeDevice" data-dev="'+d.id+'">Remove</button>'+
       (hasOS(d)?
-        '<select data-dev="'+d.id+'" data-field="os" aria-label="Operating system">'+DEVICE_OS.map(o=>'<option value="'+o.id+'"'+(d.os===o.id?" selected":"")+'>OS: '+esc(o.label)+'</option>').join("")+'</select>'+
-        '<select data-dev="'+d.id+'" data-field="enc" aria-label="'+esc(encName(d.os))+'">'+ENC_STATUS.map(e=>'<option value="'+e.id+'"'+(d.enc===e.id?" selected":"")+'>'+esc(encName(d.os))+': '+esc(e.label)+'</option>').join("")+'</select>'
+        '<select data-dev="'+d.id+'" data-field="os" aria-label="Operating system">'+DEVICE_OS.map(o=>'<option value="'+o.id+'"'+(d.os===o.id?" selected":"")+'>OS: '+esc(o.label)+'</option>').join("")+'</select>'
       : '')+
+      '<input type="text" data-dev="'+d.id+'" data-field="assignedTo" placeholder="Assigned to" aria-label="Assigned to" value="'+esc(d.assignedTo)+'">'+
+      devMore(d)+
     '</div>').join("");
   return '<div class="field"><span class="legend">Device inventory</span>'+
     '<small>List every organization device they have. You will check each one back in on the checklist.</small>'+
@@ -706,10 +844,42 @@ function viewDeviceInputs(){
     '<div class="rowbtns"><button class="btn" type="button" data-act="addDevice">Add device</button>'+
     '<button class="btn" type="button" data-act="importCSV">Import from Excel (.csv)</button>'+
     (TOP? '<button class="linkbtn" type="button" data-act="csvTemplate">Download a blank template</button>' : '')+'</div>'+
-    '<small>In Excel, filter your inventory to this person\'s devices, then use File, Save As, CSV. Columns it looks for: Type, OS, Make and model, Serial or asset tag, Encryption.</small>'+
+    '<small>In Excel, filter your inventory to this person\'s devices, then use File, Save As, CSV. It reads the same columns as the blank template, plus common names like Hostname, User, Department and Warranty.</small>'+
     (importMsg? '<small id="importMsg" role="status" style="color:var(--done)">'+esc(importMsg)+'</small>' : '')+'</div>';
 }
 
+/* collapsible "More details" form, used on both the intake row and the check in card */
+function devMore(d){
+  let h='<details class="devmore" data-more="'+d.id+'"'+(openMore.has(d.id)?" open":"")+'><summary>More details</summary>';
+  DEV_SECTIONS.forEach(sec=>{
+    const fs=DEV_FIELDS.filter(f=>f.sec===sec[0] && !f.main && fieldVisible(d,f));
+    if(fs.length) h+='<fieldset class="ddsec"><legend>'+sec[1]+'</legend><div class="ddgrid">'+fs.map(f=>fieldInput(d,f)).join("")+'</div></fieldset>';
+  });
+  return h+'</details>';
+}
+function fieldInput(d,f){
+  const id='df_'+f.k+'_'+d.id, a=' id="'+id+'" data-dev="'+d.id+'" data-field="'+f.k+'"';
+  const lab = f.kind==="enc"? encName(d.os) : f.label;
+  const sel = opts => '<select'+a+'>'+opts.map(o=>'<option value="'+o[0]+'"'+(d[f.k]===o[0]?" selected":"")+'>'+esc(o[1])+'</option>').join("")+'</select>';
+  let ctl, extra="";
+  if(f.kind==="acc") return '<div class="field"><span class="legend">'+esc(f.label)+'</span><div class="accs">'+
+      ACCESSORIES.map(x=>'<label><input type="checkbox" data-dev="'+d.id+'" data-acc="'+x[0]+'"'+(d.acc[x[0]]?" checked":"")+'>'+x[1]+'</label>').join("")+'</div></div>';
+  if(f.kind==="text") ctl='<input type="text"'+a+' value="'+esc(d[f.k])+'">';
+  else if(f.kind==="textarea") ctl='<textarea'+a+'>'+esc(d[f.k])+'</textarea>';
+  else if(f.kind==="date") ctl='<input type="date"'+a+' value="'+esc(f.k==="due"? dueOf(d) : d[f.k])+'">';
+  else if(f.kind==="enc") ctl=sel(ENC_STATUS.map(e=>[e.id,e.label]));
+  else if(f.kind==="yn") ctl=sel([["","Not set"]].concat(YN));
+  else ctl=sel([["","Not set"]].concat(f.opts));
+  if(f.k==="patched") extra='<small class="warntext" data-warn="'+d.id+'">'+esc(patchMsg(d))+'</small>';
+  if(f.k==="due" && !d.due) extra='<small>Same as the last day until you change it.</small>';
+  return '<div class="field'+(f.kind==="textarea"?" wide":"")+'"><label for="'+id+'">'+esc(lab)+'</label>'+ctl+extra+'</div>';
+}
+/* the dates line on each check in card */
+function devDates(d){
+  const p=(label,iso)=>'<span><b>'+label+'</b> '+(iso? esc(fmtShort(iso)) : "—")+'</span>';
+  return p("Due",dueOf(d))+p("Returned",d.returned)+(hasOS(d)? p("Backed up",d.backedUp)+p("Wiped",d.wiped)+p("Last updated",d.patched) : "")+
+    (d.assignedTo? '<span><b>Assigned to</b> '+esc(d.assignedTo)+'</span>' : "");
+}
 function viewDeviceCheckin(){
   const i = state.intake;
   if(!state.devices.length){
@@ -724,6 +894,9 @@ function viewDeviceCheckin(){
         DEVICE_STATUS.map(s=>'<label><input type="radio" name="devst_'+dev.id+'" data-devstatus="'+dev.id+'" value="'+s.id+'"'+(dev.status===s.id?" checked":"")+'>'+esc(s.label)+'</label>').join("")+
       '</div>'+
       (dev.at?'<span class="stamp">'+esc(devStatusLabel(dev.status))+' '+esc(fmtStamp(dev.at))+'</span>':"")+
+      '<div class="ddates" data-dates="'+dev.id+'">'+devDates(dev)+'</div>'+
+      '<small class="warntext" data-warn="'+dev.id+'">'+esc(patchMsg(dev))+'</small>'+
+      devMore(dev)+
     '</div>';
   });
   return html+'</div>';
@@ -784,6 +957,11 @@ function recordText(){
     lines.push(""); lines.push("DEVICE INVENTORY");
     state.devices.forEach(d=>{
       lines.push("["+devStatusLabel(d.status).toUpperCase()+(d.at?" "+fmtStamp(d.at):"")+"] "+devName(d)+(hasOS(d)? " | OS: "+osLabel(d.os)+" | "+encText(d) : "")+" | Serial or asset tag: "+(d.serial||"Not entered"));
+      if(patchStale(d)) lines.push("    WARNING: not updated in "+patchAge(d)+" days (last updated "+fmtShort(d.patched)+")");
+      DEV_SECTIONS.forEach(sec=>{
+        const parts=DEV_FIELDS.filter(f=>f.sec===sec[0] && f.kind!=="enc" && fieldVisible(d,f)).map(f=>[f.label, fieldText(d,f)]).filter(p=>p[1]);
+        if(parts.length) lines.push("    "+sec[1]+": "+parts.map(p=>p[0]+": "+p[1]).join("; "));
+      });
     });
   }
   return lines.join("\n");
@@ -801,9 +979,21 @@ function viewRecord(){
   });
   const d = devCounts();
   let devRows = "";
+  const na='<span class="muted">n/a</span>', dash='<span class="muted">—</span>';
+  const dcell=iso=> iso? esc(fmtShort(iso)) : dash;
+  let staleN=0, cards="";
   state.devices.forEach(dev=>{
     const cls = dev.status==="out" ? "open" : dev.status==="missing" ? "missing" : "done";
-    devRows += '<tr><td>'+esc(devTypeLabel(dev.type))+'</td><td>'+(hasOS(dev)? esc(osLabel(dev.os)) : '<span class="muted">n/a</span>')+'</td><td>'+esc(dev.model||"Not entered")+'</td><td class="mono">'+esc(dev.serial||"Not entered")+'</td><td>'+(hasOS(dev)? esc(encText(dev)) : '<span class="muted">n/a</span>')+'</td><td><span class="st '+cls+'">'+esc(devStatusLabel(dev.status))+(dev.at?" "+esc(fmtStamp(dev.at)):"")+'</span></td></tr>';
+    const stale=patchStale(dev); if(stale) staleN++;
+    const upd = !hasOS(dev)? na : stale? '<span class="st missing">⚠ '+esc(fmtShort(dev.patched))+'<br>'+patchAge(dev)+' days ago</span>' : dcell(dev.patched);
+    devRows += '<tr'+(stale?' class="stale"':'')+'><td><b>'+esc(devName(dev))+'</b><br><span class="muted mono">'+esc(dev.serial||"No serial")+'</span></td>'+
+      '<td>'+(hasOS(dev)? esc(osLabel(dev.os)) : na)+'</td><td>'+(dev.assignedTo? esc(dev.assignedTo) : dash)+'</td><td>'+(hasOS(dev)? esc(encText(dev)) : na)+'</td>'+
+      '<td>'+upd+'</td><td>'+dcell(dueOf(dev))+'</td><td>'+dcell(dev.returned)+'</td><td>'+(hasOS(dev)? dcell(dev.backedUp) : na)+'</td><td>'+(hasOS(dev)? dcell(dev.wiped) : na)+'</td>'+
+      '<td>'+(fieldText(dev,fieldDef("next"))? esc(fieldText(dev,fieldDef("next"))+(dev.next==="reassigned"&&dev.reassignedTo? " "+dev.reassignedTo : "")) : dash)+'</td>'+
+      '<td><span class="st '+cls+'">'+esc(devStatusLabel(dev.status))+(dev.at?" "+esc(fmtStamp(dev.at)):"")+'</span></td></tr>';
+    /* every filled detail, grouped, under the table */
+    const pairs=DEV_FIELDS.filter(f=>fieldVisible(dev,f)).map(f=>[f.kind==="enc"? "Encryption" : f.label, fieldText(dev,f)]).filter(p=>p[1]);
+    cards += '<div class="ddcard"><b>'+esc(devName(dev))+'</b>'+(pairs.length? '<dl>'+pairs.map(p=>'<dt>'+esc(p[0])+'</dt><dd>'+esc(p[1])+'</dd>').join("")+'</dl>' : '<p class="muted">No other details entered.</p>')+'</div>';
   });
   const openMsg = [];
   if(c.open) openMsg.push(c.open+' step'+(c.open===1?"":"s"));
@@ -821,7 +1011,10 @@ function viewRecord(){
     '<div class="kv"><span>Open</span><b>'+c.open+'</b></div>'+
   '</div>'+
   '<div class="tablewrap"><table><thead><tr><th>When</th><th>Step</th><th>Status</th><th>Note</th></tr></thead><tbody>'+rows+'</tbody></table></div>'+
-  (state.devices.length? '<h3>Device inventory</h3><div class="tablewrap"><table><thead><tr><th>Type</th><th>OS</th><th>Make and model</th><th>Serial or asset tag</th><th>Encryption</th><th>Status</th></tr></thead><tbody>'+devRows+'</tbody></table></div>' : "")+
+  (state.devices.length? '<h3>Device inventory</h3>'+
+    (staleN? '<div class="banner warn"><span><b>'+staleN+' device'+(staleN===1?" has":"s have")+' not been updated in over 30 days.</b> Install updates before giving '+(staleN===1?"it":"them")+' to someone else.</span></div>' : "")+
+    '<div class="tablewrap"><table class="wide"><thead><tr><th>Device</th><th>OS</th><th>Assigned to</th><th>Encryption</th><th>Last updated</th><th>Return due</th><th>Returned</th><th>Backed up</th><th>Wiped</th><th>Next step</th><th>Status</th></tr></thead><tbody>'+devRows+'</tbody></table></div>'+
+    '<h3>Device details</h3><div class="devdetails">'+cards+'</div>' : "")+
   '<div class="rowbtns"><button class="btn primary" type="button" data-act="copy" id="btnCopy">Copy record</button>'+
   (TOP? '<button class="btn" type="button" data-act="download">Download as text file</button>'+(state.devices.length?'<button class="btn" type="button" data-act="exportCSV">Download devices for Excel (.csv)</button>':'')+'<button class="btn" type="button" data-act="print">Print</button>' : '')+
   '</div></section>';
@@ -843,7 +1036,14 @@ view.addEventListener("input",e=>{
   const el=e.target; const i=state.intake;
   if(el.id==="role"||el.id==="doneBy"||el.id==="lastDay"||el.id==="other"){ i[el.id]=el.value; }
   else if(el.dataset.note){ const s=Object.assign({},itemState(el.dataset.note)); s.note=el.value; state.items[el.dataset.note]=s; save(); return; }
-  else if(el.dataset.dev && el.dataset.field && el.tagName==="INPUT"){ const dv=state.devices.find(x=>x.id===el.dataset.dev); if(dv){ dv[el.dataset.field]=el.value; save(); } return; }
+  else if(el.dataset.dev && el.dataset.field && (el.tagName==="INPUT"||el.tagName==="TEXTAREA")){
+    const dv=state.devices.find(x=>x.id===el.dataset.dev); if(!dv) return;
+    let v=el.value; if(el.dataset.field==="due" && v===i.lastDay) v=""; /* back to following the last day */
+    dv[el.dataset.field]=v; save();
+    /* dates change the warning and the dates line, so refresh those in place (redrawing would interrupt typing) */
+    if(el.type==="date") refreshDevInfo(dv);
+    return;
+  }
   else return;
   save(); renderCard(); updateCount();
 });
@@ -854,12 +1054,15 @@ view.addEventListener("change",e=>{
   else if(el.name==="departure") i.departure=el.value;
   else if(el.name==="admin") i.admin = el.value==="yes";
   else if(el.id==="lastDay") i.lastDay=el.value;
-  else if(el.dataset.dev && ["type","os","enc"].indexOf(el.dataset.field)!==-1){
+  else if(el.dataset.dev && el.dataset.acc){ const dv=state.devices.find(x=>x.id===el.dataset.dev); if(dv){ dv.acc[el.dataset.acc]=el.checked; save(); } return; }
+  else if(el.dataset.dev && el.tagName==="SELECT"){
     const dv=state.devices.find(x=>x.id===el.dataset.dev); if(!dv) return;
-    dv[el.dataset.field]=el.value; save();
-    /* type and OS change which fields show and the encryption name, so redraw and keep focus */
-    if(el.dataset.field!=="enc"){
-      const f=el.dataset.field; const y=window.scrollY; render(); window.scrollTo(0,y);
+    const f=el.dataset.field; dv[f]=el.value;
+    if(f==="updReq" && el.value==="yes" && !dv.updReqDate) dv.updReqDate=todayISO();
+    save();
+    /* these change which fields show, the encryption name or a filled-in date, so redraw and keep focus */
+    if(["type","os","next","updReq"].indexOf(f)!==-1){
+      const y=window.scrollY; render(); window.scrollTo(0,y);
       const again=view.querySelector('select[data-dev="'+dv.id+'"][data-field="'+f+'"]'); if(again) again.focus({preventScroll:true});
     } else { renderCard(); updateCount(); }
     return;
@@ -867,6 +1070,10 @@ view.addEventListener("change",e=>{
   else if(el.dataset.devstatus){
     const dv=state.devices.find(x=>x.id===el.dataset.devstatus); if(!dv) return;
     dv.status=el.value; dv.at = Date.now();
+    /* fill today's date when a status change implies one; it stays editable in More details */
+    const t=todayISO();
+    if((el.value==="returned"||el.value==="wiped") && !dv.returned) dv.returned=t;
+    if(el.value==="wiped" && hasOS(dv) && !dv.wiped) dv.wiped=t;
     save(); const y=window.scrollY; render(); window.scrollTo(0,y);
     const again=view.querySelector('input[data-devstatus="'+dv.id+'"][value="'+dv.status+'"]'); if(again) again.focus({preventScroll:true});
     return;
@@ -874,6 +1081,12 @@ view.addEventListener("change",e=>{
   else return;
   save(); renderCard(); updateCount();
 });
+function refreshDevInfo(dv){
+  view.querySelectorAll('[data-warn="'+dv.id+'"]').forEach(x=>{ x.textContent=patchMsg(dv); });
+  view.querySelectorAll('[data-dates="'+dv.id+'"]').forEach(x=>{ x.innerHTML=devDates(dv); });
+}
+/* remember which "More details" sections are open ("toggle" does not bubble, so listen in the capture phase) */
+view.addEventListener("toggle",e=>{ const d=e.target; if(d.dataset && d.dataset.more){ if(d.open) openMore.add(d.dataset.more); else openMore.delete(d.dataset.more); } }, true);
 function updateCount(){ const el=document.getElementById("buildCount"); if(el) el.innerHTML='This builds a checklist of <b>'+activeTasks().length+'</b> steps.'; }
 
 view.addEventListener("click",e=>{
@@ -893,7 +1106,7 @@ view.addEventListener("click",e=>{
     return;
   }
   if(act==="exportCSV"){ saveFile(devicesCSV(), "device-checkin-"+(state.intake.lastDay||isoDate(new Date()))+".csv", "text/csv;charset=utf-8"); return; }
-  if(act==="csvTemplate"){ saveFile("﻿Type,OS,Make and model,Serial or asset tag,Encryption\r\nLaptop,Windows,Dell Latitude 5440,NP-0142,On\r\n", "device-inventory-template.csv", "text/csv;charset=utf-8"); return; }
+  if(act==="csvTemplate"){ saveFile(templateCSV(), "device-inventory-template.csv", "text/csv;charset=utf-8"); return; }
   if(act==="importCSV"){
     const fi=document.createElement("input"); fi.type="file"; fi.accept=".csv,text/csv";
     fi.addEventListener("change",()=>{
