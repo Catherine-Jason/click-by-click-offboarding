@@ -134,10 +134,26 @@ tr:last-child td{border-bottom:0}
 .st.done{color:var(--done)} .st.na{color:var(--skip)} .st.open{color:var(--warn); font-weight:500}
 .rowbtns{display:flex; gap:8px; flex-wrap:wrap}
 #copyText{position:absolute; left:-9999px; top:0}
+
+/* device inventory */
+select{font:inherit; color:var(--ink); background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:9px 11px; width:100%}
+.devlist{display:flex; flex-direction:column; gap:8px}
+.devrow{display:grid; grid-template-columns:15em 1fr 1fr auto; gap:8px; align-items:center; border:1px solid var(--line); border-radius:8px; padding:8px; background:var(--bg)}
+.devrow input[type=text],.devrow select{background:var(--surface)}
+.devempty{border:1px dashed var(--line); border-radius:8px; padding:12px; font-size:14px; color:var(--muted)}
+.dev{display:flex; flex-direction:column; gap:8px; padding:12px; border:1px solid var(--line); border-radius:10px; background:var(--surface)}
+.dev.s-returned,.dev.s-wiped{background:var(--done-soft); border-color:transparent}
+.dev.s-missing{background:var(--warn-soft); border-color:var(--warn)}
+.dev .t{font-weight:600}
+.dev .serial{font-family:var(--f-mono); font-size:12.5px; color:var(--muted)}
+.dev .seg label{padding:6px 10px; font-size:13px}
+.st.missing{color:var(--warn); font-weight:500}
 footer{font-size:12.5px; color:var(--muted); display:flex; flex-direction:column; gap:4px; text-align:center}
 
 @media (max-width:620px){
   .grid2,.systems,.recordhead{grid-template-columns:1fr}
+  .devrow{grid-template-columns:1fr auto}
+  .devrow input[type=text]{grid-column:1 / -1}
   nav.steps button .lbl-long{display:none}
   .card{grid-template-columns:auto 1fr}
   .card .status{grid-column:1 / -1; justify-self:start}
@@ -181,7 +197,7 @@ footer{font-size:12.5px; color:var(--muted); display:flex; flex-direction:column
 
   <footer>
     <p><strong>Disclaimer:</strong> This tool is provided for educational purposes only. Your answers stay in your browser and are never collected, stored or shared. It does not replace guidance from your organization's IT, HR or legal team.</p>
-    <p>&copy; 2026 Catherine Jason &middot; Click by Click Offboarding v1.0 &middot; <a href="https://www.catherinejason.com" target="_blank" rel="noopener" style="color: var(--accent);">catherinejason.com</a></p>
+    <p>&copy; 2026 Catherine Jason &middot; Click by Click Offboarding v1.1 &middot; <a href="https://www.catherinejason.com" target="_blank" rel="noopener" style="color: var(--accent);">catherinejason.com</a></p>
   </footer>
 </div>
 <textarea id="copyText" aria-hidden="true" tabindex="-1"></textarea>
@@ -204,6 +220,97 @@ const SYSTEMS = [
   {id:"personal", label:"Work email or apps on their personal phone", hint:""},
   {id:"keys", label:"Keys, badge or alarm code", hint:""}
 ];
+
+const DEVICE_TYPES = [
+  {id:"laptop", label:"Laptop"},
+  {id:"tablet", label:"Tablet"},
+  {id:"phone", label:"Phone"},
+  {id:"hotspot", label:"Hotspot"},
+  {id:"accessory", label:"Monitor/dock/accessory"},
+  {id:"other", label:"Other"}
+];
+const DEVICE_STATUS = [
+  {id:"out", label:"Still out"},
+  {id:"returned", label:"Returned"},
+  {id:"wiped", label:"Wiped and ready to reuse"},
+  {id:"missing", label:"Missing"}
+];
+function devTypeLabel(id){ const t=DEVICE_TYPES.find(x=>x.id===id); return t? t.label : "Device"; }
+function devStatusLabel(id){ const s=DEVICE_STATUS.find(x=>x.id===id); return s? s.label : "Still out"; }
+function devName(d){ return devTypeLabel(d.type)+(d.model? " · "+d.model : ""); }
+/* ---------- Excel (CSV) import and export ---------- */
+function parseCSV(text){
+  text = text.replace(/^﻿/,"");
+  const rows=[]; let row=[], cell="", q=false;
+  for(let k=0;k<text.length;k++){
+    const ch=text[k];
+    if(q){
+      if(ch==='"'){ if(text[k+1]==='"'){ cell+='"'; k++; } else q=false; }
+      else cell+=ch;
+    } else if(ch==='"') q=true;
+    else if(ch===','){ row.push(cell); cell=""; }
+    else if(ch==='\n'||ch==='\r'){ if(ch==='\r'&&text[k+1]==='\n') k++; row.push(cell); rows.push(row); row=[]; cell=""; }
+    else cell+=ch;
+  }
+  if(cell!==""||row.length){ row.push(cell); rows.push(row); }
+  return rows.filter(r=>r.some(c=>c.trim()!==""));
+}
+function guessType(s){
+  s=(s||"").toLowerCase();
+  if(/laptop|notebook|chromebook|macbook|latitude|thinkpad|elitebook|surface laptop/.test(s)) return "laptop";
+  if(/tablet|ipad|surface pro|galaxy tab/.test(s)) return "tablet";
+  if(/phone|iphone|android|pixel|mobile|cell/.test(s)) return "phone";
+  if(/hotspot|mifi|jetpack/.test(s)) return "hotspot";
+  if(/monitor|dock|keyboard|mouse|headset|webcam|charger|accessor|printer/.test(s)) return "accessory";
+  return "other";
+}
+function importDevicesCSV(text){
+  const rows=parseCSV(text); if(rows.length<2) return 0;
+  const head=rows[0].map(h=>h.trim().toLowerCase());
+  const used=new Set();
+  /* try each pattern in order and skip columns already matched */
+  const find=(...res)=>{ for(const re of res){ const k=head.findIndex((h,idx)=>!used.has(idx)&&re.test(h)); if(k>=0){ used.add(k); return k; } } return -1; };
+  const iSerial=find(/serial|imei/, /asset|tag/);
+  const iType=find(/type|category|kind/);
+  /* columns about the person, not the device, never count as make and model */
+  const PERSON=/^(full |first |last )?name$|employee|assigned|user|owner/;
+  head.forEach((h,idx)=>{ if(PERSON.test(h) && idx!==iSerial && idx!==iType) used.add(idx); });
+  const iModel=find(/make|model/, /description|item|name/, /device/);
+  if(iModel<0 && iSerial<0) return -1;
+  let n=0;
+  rows.slice(1).forEach(r=>{
+    const model=iModel>=0?(r[iModel]||"").trim():"";
+    const serial=iSerial>=0?(r[iSerial]||"").trim():"";
+    if(!model && !serial) return;
+    const typeText=iType>=0?(r[iType]||""):"";
+    const d=newDevice(guessType(typeText||model));
+    d.model=model.slice(0,120); d.serial=serial.slice(0,80);
+    state.devices.push(d); n++;
+  });
+  return n;
+}
+/* a cell starting with = + - @ can run as a formula in Excel, so it gets a leading quote */
+function csvCell(v){
+  let s=String(v==null?"":v);
+  if(/^[=+\-@\t\r]/.test(s)) s="'"+s;
+  return /[",\n\r]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s;
+}
+function devicesCSV(){
+  const i=state.intake;
+  const lines=[["Type","Make and model","Serial or asset tag","Status","Status date","Person or role","Last day"].join(",")];
+  state.devices.forEach(d=>{
+    lines.push([devTypeLabel(d.type), d.model, d.serial, devStatusLabel(d.status),
+      d.at? new Date(d.at).toLocaleString("en-US") : "", personLabel(), i.lastDay||""].map(csvCell).join(","));
+  });
+  return "﻿"+lines.join("\r\n");
+}
+function saveFile(text, name, type){
+  const blob=new Blob([text],{type:type});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=name;
+  document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(a.href); a.remove();},500);
+}
+
+function newDevice(type){ return {id:"d"+Date.now().toString(36)+Math.random().toString(36).slice(2,6), type:type||"laptop", model:"", serial:"", status:"out", at:null}; }
 
 const has = (i, s) => i.systems.indexOf(s) !== -1;
 const TASKS = [
@@ -337,18 +444,33 @@ function fmtStamp(ts){const d=new Date(ts); return d.toLocaleDateString("en-US",
 function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
 
 function nextFriday(){const d=new Date(); const add=(5-d.getDay()+7)%7||7; return isoDate(addDays(d,add))}
-function blank(){ return {step:"intake", example:false, intake:{role:"", type:"staff", departure:"planned", lastDay:"", doneBy:"", admin:false, systems:[], other:""}, items:{}} }
+function blank(){ return {step:"intake", example:false, intake:{role:"", type:"staff", departure:"planned", lastDay:"", doneBy:"", admin:false, systems:[], other:""}, items:{}, devices:[]} }
 function example(){
   const s = blank(); s.example = true;
   s.intake = {role:"Volunteer events lead", type:"volunteer", departure:"planned", lastDay:nextFriday(), doneBy:"Office manager", admin:false,
-    systems:["email","cloud","social","sharedpw","personal","keys"], other:"Event signup form (Google Forms)"};
+    systems:["email","cloud","social","sharedpw","laptop","personal","keys"], other:"Event signup form (Google Forms)"};
+  const lap = newDevice("laptop"); lap.model="Dell Latitude 5440"; lap.serial="Asset tag NP-0142";
+  const tab = newDevice("tablet"); tab.id+="b"; tab.model="iPad (check in table at events)"; tab.serial="DMPXK2Q4LM";
+  s.devices = [lap, tab];
   return s;
 }
-function load(){ try{ const raw=localStorage.getItem(KEY); if(raw){ const s=JSON.parse(raw); if(s && s.intake) return s; } }catch(e){} return null }
+/* older saves (v1.0) have no devices, and a hand-edited save can have broken entries: keep only valid devices */
+function cleanDevices(list){
+  const types=DEVICE_TYPES.map(t=>t.id), sts=DEVICE_STATUS.map(t=>t.id), seen=new Set();
+  return (Array.isArray(list)? list : []).filter(d=>d && typeof d==="object").map((d,n)=>{
+    let id=String(d.id||"").replace(/[^A-Za-z0-9_-]/g,"") || "dold"+n;
+    while(seen.has(id)) id+="x"; seen.add(id);
+    return {id:id, type: types.indexOf(d.type)!==-1? d.type : "other",
+      model: typeof d.model==="string"? d.model : "", serial: typeof d.serial==="string"? d.serial : "",
+      status: sts.indexOf(d.status)!==-1? d.status : "out", at: typeof d.at==="number"? d.at : null};
+  });
+}
+function load(){ try{ const raw=localStorage.getItem(KEY); if(raw){ const s=JSON.parse(raw); if(s && s.intake){ if(!s.items||typeof s.items!=="object") s.items={}; if(!Array.isArray(s.intake.systems)) s.intake.systems=[]; s.devices=cleanDevices(s.devices); return s; } } }catch(e){} return null }
 function save(){ try{ localStorage.setItem(KEY, JSON.stringify(state)) }catch(e){} }
 
 let state = load() || example();
 let confirmNew = false;
+let importMsg = "";
 
 function phaseOf(t){
   if(state.intake.departure==="unplanned"){
@@ -365,6 +487,11 @@ function activeTasks(){
     list.push({id:"other_"+idx+"_"+o.toLowerCase().replace(/[^a-z0-9]+/g,"").slice(0,24), ph:"day", area:"Identity",
       urgent:false, title:"Remove their access to "+o, why:"You listed this system yourself on the intake screen."});
   });
+  if(state.devices.some(d=>d.status==="missing")){
+    list.push({id:"dev_missing", ph:"day", area:"Endpoint", urgent:true, alwaysUrgent:true,
+      title:"Lock or remotely wipe the missing device and change passwords saved on it",
+      why:"Use your device management tool, Apple Find My or Google Find My Device. Write down what you did in the note."});
+  }
   const order = {before:0, day:1, after:2};
   return list.map((t,n)=>Object.assign(t,{n})).sort((a,b)=> order[a.ph]-order[b.ph] || (b.urgent?1:0)-(a.urgent?1:0) || a.n-b.n);
 }
@@ -373,6 +500,16 @@ function counts(list){
   let done=0, na=0, open=0;
   list.forEach(t=>{const s=itemState(t.id).status; if(s==="done")done++; else if(s==="na")na++; else open++;});
   return {done,na,open,total:list.length};
+}
+function devCounts(){
+  const c={out:0, returned:0, wiped:0, missing:0, total:state.devices.length};
+  state.devices.forEach(d=>{ c[d.status in c ? d.status : "out"]++; });
+  return c;
+}
+/* steps plus devices: a device still out counts as open, any other status counts as closed */
+function totals(){
+  const c = counts(activeTasks()); const d = devCounts();
+  return {done:c.done+(d.total-d.out), na:c.na, open:c.open+d.out, total:c.total+d.total};
 }
 function phaseInfo(ph){
   const ld = parseDate(state.intake.lastDay); const unplanned = state.intake.departure==="unplanned";
@@ -384,7 +521,7 @@ function personLabel(){ const i=state.intake; return i.role ? i.role : "Departin
 
 /* ---------- card ---------- */
 function renderCard(){
-  const list = activeTasks(); const c = counts(list);
+  const c = totals();
   const pct = c.total? Math.round((c.done+c.na)/c.total*100) : 0;
   const i = state.intake;
   document.getElementById("cardWho").textContent = personLabel();
@@ -430,8 +567,46 @@ function viewIntake(){
   '</div>'+
   '<div class="field"><span class="legend">What did they have access to?</span><div class="systems">'+sys+'</div></div>'+
   '<div class="field"><label for="other">Any other systems?</label><input type="text" id="other" placeholder="Separate with commas. Example: Zoom, Canva, scheduling app" value="'+esc(i.other)+'"></div>'+
+  viewDeviceInputs()+
   '<div class="formfoot"><span class="muted" id="buildCount">This builds a checklist of <b>'+n+'</b> steps.</span><button class="btn primary" type="button" data-go="list">Build checklist</button></div>'+
   '</section>';
+}
+
+function viewDeviceInputs(){
+  const rows = state.devices.map(d=>
+    '<div class="devrow" data-dev="'+d.id+'">'+
+      '<select data-dev="'+d.id+'" data-field="type" aria-label="Device type">'+DEVICE_TYPES.map(t=>'<option value="'+t.id+'"'+(d.type===t.id?" selected":"")+'>'+esc(t.label)+'</option>').join("")+'</select>'+
+      '<input type="text" data-dev="'+d.id+'" data-field="model" placeholder="Make and model" aria-label="Make and model" value="'+esc(d.model)+'">'+
+      '<input type="text" data-dev="'+d.id+'" data-field="serial" placeholder="Serial or asset tag" aria-label="Serial or asset tag" value="'+esc(d.serial)+'">'+
+      '<button class="linkbtn" type="button" data-act="removeDevice" data-dev="'+d.id+'">Remove</button>'+
+    '</div>').join("");
+  return '<div class="field"><span class="legend">Device inventory</span>'+
+    '<small>List every organization device they have. You will check each one back in on the checklist.</small>'+
+    '<div class="devlist">'+(rows || '<div class="devempty">No devices listed yet.</div>')+'</div>'+
+    '<div class="rowbtns"><button class="btn" type="button" data-act="addDevice">Add device</button>'+
+    '<button class="btn" type="button" data-act="importCSV">Import from Excel (.csv)</button>'+
+    (TOP? '<button class="linkbtn" type="button" data-act="csvTemplate">Download a blank template</button>' : '')+'</div>'+
+    '<small>In Excel, filter your inventory to this person\'s devices, then use File, Save As, CSV. Columns it looks for: Type, Make and model, Serial or asset tag.</small>'+
+    (importMsg? '<small id="importMsg" role="status" style="color:var(--done)">'+esc(importMsg)+'</small>' : '')+'</div>';
+}
+
+function viewDeviceCheckin(){
+  const i = state.intake;
+  if(!state.devices.length){
+    return (has(i,"laptop")||has(i,"phone")) ? '<div class="banner"><span>No devices listed. Add them on the intake screen so you can check each one back in.</span><button class="btn" type="button" data-go="intake">Add devices</button></div>' : "";
+  }
+  const d = devCounts();
+  let html = '<div class="phase"><div class="phase-head"><h3>Device check in</h3><span class="when">'+esc(fmt(parseDate(i.lastDay)))+' · '+(d.total-d.out)+'/'+d.total+'</span></div>';
+  state.devices.forEach(dev=>{
+    html += '<div class="dev s-'+dev.status+'" data-dev="'+dev.id+'">'+
+      '<div><div class="t">'+esc(devName(dev))+'</div><div class="serial">'+(dev.serial? "Serial or asset tag: "+esc(dev.serial) : "No serial or asset tag entered")+'</div></div>'+
+      '<div class="seg" role="radiogroup" aria-label="Status for '+esc(devName(dev))+'">'+
+        DEVICE_STATUS.map(s=>'<label><input type="radio" name="devst_'+dev.id+'" data-devstatus="'+dev.id+'" value="'+s.id+'"'+(dev.status===s.id?" checked":"")+'>'+esc(s.label)+'</label>').join("")+
+      '</div>'+
+      (dev.at?'<span class="stamp">'+esc(devStatusLabel(dev.status))+' '+esc(fmtStamp(dev.at))+'</span>':"")+
+    '</div>';
+  });
+  return html+'</div>';
 }
 
 function viewList(){
@@ -449,7 +624,7 @@ function viewList(){
       html += '<div class="item s-'+s.status+'" data-id="'+t.id+'">'+
         '<button class="check" type="button" data-act="toggle" aria-pressed="'+(s.status==="done")+'" aria-label="Mark done: '+esc(t.title)+'">'+CHECK+'</button>'+
         '<div class="body"><div class="t">'+esc(t.title)+'</div><div class="why">'+esc(t.why)+'</div>'+
-        '<div class="meta">'+(t.urgent&&unplanned?'<span class="tag urgent">Urgent</span>':"")+'<span class="tag">'+esc(t.area)+'</span>'+
+        '<div class="meta">'+(t.urgent&&(unplanned||t.alwaysUrgent)?'<span class="tag urgent">Urgent</span>':"")+'<span class="tag">'+esc(t.area)+'</span>'+
         (s.status==="done"&&s.at?'<span class="stamp">Done '+esc(fmtStamp(s.at))+'</span>':"")+
         '<button class="linkbtn" type="button" data-act="skip">'+(s.status==="na"?"Undo not needed":"Not needed")+'</button>'+
         '<button class="linkbtn" type="button" data-act="note">'+(s.note?"Edit note":"Add note")+'</button></div>'+
@@ -457,6 +632,7 @@ function viewList(){
         '</div></div>';
     });
     html += '</div>';
+    if(ph==="day") html += viewDeviceCheckin();
   });
   html += '<div class="formfoot"><button class="btn" type="button" data-go="intake">Back to intake</button><button class="btn primary" type="button" data-go="record">View record</button></div></section>';
   return html;
@@ -474,6 +650,7 @@ function recordText(){
   lines.push("Admin access: "+(i.admin?"Yes":"No"));
   lines.push("Record created: "+new Date().toLocaleString("en-US"));
   lines.push("Summary: "+c.done+" done, "+c.na+" not needed, "+c.open+" open, "+c.total+" total");
+  if(state.devices.length){ const d=devCounts(); lines.push("Devices: "+(d.returned+d.wiped)+" returned, "+d.missing+" missing, "+d.out+" still out, "+d.total+" total"); }
   ["before","day","after"].forEach(ph=>{
     const items = list.filter(t=>t.ph===ph); if(!items.length) return;
     lines.push(""); lines.push(phaseInfo(ph).label.toUpperCase()+" ("+phaseInfo(ph).when+")");
@@ -483,6 +660,12 @@ function recordText(){
       lines.push(st+" "+t.title+(s.note?"\n    Note: "+s.note:""));
     });
   });
+  if(state.devices.length){
+    lines.push(""); lines.push("DEVICE INVENTORY");
+    state.devices.forEach(d=>{
+      lines.push("["+devStatusLabel(d.status).toUpperCase()+(d.at?" "+fmtStamp(d.at):"")+"] "+devName(d)+" | Serial or asset tag: "+(d.serial||"Not entered"));
+    });
+  }
   return lines.join("\n");
 }
 
@@ -496,9 +679,19 @@ function viewRecord(){
     const st = s.status==="done" ? '<span class="st done">Done'+(s.at?" "+esc(fmtStamp(s.at)):"")+'</span>' : s.status==="na" ? '<span class="st na">Not needed</span>' : '<span class="st open">Open</span>';
     rows += '<tr><td>'+esc(phaseInfo(t.ph).label)+'</td><td>'+esc(t.title)+'</td><td>'+st+'</td><td>'+esc(s.note)+'</td></tr>';
   });
+  const d = devCounts();
+  let devRows = "";
+  state.devices.forEach(dev=>{
+    const cls = dev.status==="out" ? "open" : dev.status==="missing" ? "missing" : "done";
+    devRows += '<tr><td>'+esc(devTypeLabel(dev.type))+'</td><td>'+esc(dev.model||"Not entered")+'</td><td class="mono">'+esc(dev.serial||"Not entered")+'</td><td><span class="st '+cls+'">'+esc(devStatusLabel(dev.status))+(dev.at?" "+esc(fmtStamp(dev.at)):"")+'</span></td></tr>';
+  });
+  const openMsg = [];
+  if(c.open) openMsg.push(c.open+' step'+(c.open===1?"":"s"));
+  if(d.out) openMsg.push(d.out+' device'+(d.out===1?"":"s"));
   return '<section class="panel">'+exampleBanner()+
   '<div><h2>Offboarding record</h2><p class="muted">Proof that access was removed. Keep a copy with your HR or IT files.</p></div>'+
-  (c.open? '<div class="banner warn"><span><b>'+c.open+' step'+(c.open===1?" is":"s are")+' still open.</b> Finish them or mark them as not needed before you save this record.</span><button class="btn" type="button" data-go="list">Go to checklist</button></div>' : '<div class="banner"><span><b>All steps are closed.</b> Access for this person has been removed.</span></div>')+
+  (openMsg.length? '<div class="banner warn"><span><b>'+openMsg.join(" and ")+' still open.</b> Finish them or mark them as not needed before you save this record.</span><button class="btn" type="button" data-go="list">Go to checklist</button></div>' : '<div class="banner"><span><b>All steps are closed.</b> Access for this person has been removed.</span></div>')+
+  (d.missing? '<div class="banner warn"><span><b>'+d.missing+' device'+(d.missing===1?" is":"s are")+' missing.</b> Make sure it is locked or wiped, and follow your policy for lost equipment.</span></div>' : "")+
   '<div class="recordhead">'+
     '<div class="kv"><span>Person or role</span><b>'+esc(personLabel())+'</b></div>'+
     '<div class="kv"><span>Last day</span><b>'+esc(fmt(parseDate(i.lastDay)))+'</b></div>'+
@@ -508,8 +701,9 @@ function viewRecord(){
     '<div class="kv"><span>Open</span><b>'+c.open+'</b></div>'+
   '</div>'+
   '<div class="tablewrap"><table><thead><tr><th>When</th><th>Step</th><th>Status</th><th>Note</th></tr></thead><tbody>'+rows+'</tbody></table></div>'+
+  (state.devices.length? '<h3>Device inventory</h3><div class="tablewrap"><table><thead><tr><th>Type</th><th>Make and model</th><th>Serial or asset tag</th><th>Status</th></tr></thead><tbody>'+devRows+'</tbody></table></div>' : "")+
   '<div class="rowbtns"><button class="btn primary" type="button" data-act="copy" id="btnCopy">Copy record</button>'+
-  (TOP? '<button class="btn" type="button" data-act="download">Download as text file</button><button class="btn" type="button" data-act="print">Print</button>' : '')+
+  (TOP? '<button class="btn" type="button" data-act="download">Download as text file</button>'+(state.devices.length?'<button class="btn" type="button" data-act="exportCSV">Download devices for Excel (.csv)</button>':'')+'<button class="btn" type="button" data-act="print">Print</button>' : '')+
   '</div></section>';
 }
 
@@ -519,7 +713,7 @@ function render(){
   document.querySelectorAll("nav.steps button").forEach(b=>{ if(b.dataset.step===state.step) b.setAttribute("aria-current","step"); else b.removeAttribute("aria-current"); });
   renderCard();
 }
-function go(step){ state.step=step; save(); render(); window.scrollTo({top:0, behavior:"smooth"}); }
+function go(step){ importMsg=""; state.step=step; save(); render(); window.scrollTo({top:0, behavior:"smooth"}); }
 
 /* ---------- events ---------- */
 document.querySelector("nav.steps").addEventListener("click",e=>{ const b=e.target.closest("button[data-step]"); if(b) go(b.dataset.step); });
@@ -529,6 +723,7 @@ view.addEventListener("input",e=>{
   const el=e.target; const i=state.intake;
   if(el.id==="role"||el.id==="doneBy"||el.id==="lastDay"||el.id==="other"){ i[el.id]=el.value; }
   else if(el.dataset.note){ const s=Object.assign({},itemState(el.dataset.note)); s.note=el.value; state.items[el.dataset.note]=s; save(); return; }
+  else if(el.dataset.dev && el.dataset.field && el.tagName==="INPUT"){ const dv=state.devices.find(x=>x.id===el.dataset.dev); if(dv){ dv[el.dataset.field]=el.value; save(); } return; }
   else return;
   save(); renderCard(); updateCount();
 });
@@ -539,6 +734,14 @@ view.addEventListener("change",e=>{
   else if(el.name==="departure") i.departure=el.value;
   else if(el.name==="admin") i.admin = el.value==="yes";
   else if(el.id==="lastDay") i.lastDay=el.value;
+  else if(el.dataset.dev && el.dataset.field==="type"){ const dv=state.devices.find(x=>x.id===el.dataset.dev); if(dv) dv.type=el.value; }
+  else if(el.dataset.devstatus){
+    const dv=state.devices.find(x=>x.id===el.dataset.devstatus); if(!dv) return;
+    dv.status=el.value; dv.at = Date.now();
+    save(); const y=window.scrollY; render(); window.scrollTo(0,y);
+    const again=view.querySelector('input[data-devstatus="'+dv.id+'"][value="'+dv.status+'"]'); if(again) again.focus({preventScroll:true});
+    return;
+  }
   else return;
   save(); renderCard(); updateCount();
 });
@@ -552,6 +755,42 @@ view.addEventListener("click",e=>{
   if(act==="copy"){ copyRecord(a); return; }
   if(act==="download"){ download(); return; }
   if(act==="print"){ window.print(); return; }
+  if(act==="addDevice"){
+    const i=state.intake; const used=new Set(state.devices.map(x=>x.type));
+    const guess = has(i,"laptop")&&!used.has("laptop") ? "laptop" : has(i,"phone")&&!used.has("phone") ? "phone" : "laptop";
+    const dv=newDevice(guess); state.devices.push(dv); save();
+    const y=window.scrollY; render(); window.scrollTo(0,y);
+    const f=view.querySelector('input[data-dev="'+dv.id+'"][data-field="model"]'); if(f) f.focus({preventScroll:true});
+    return;
+  }
+  if(act==="exportCSV"){ saveFile(devicesCSV(), "device-checkin-"+(state.intake.lastDay||isoDate(new Date()))+".csv", "text/csv;charset=utf-8"); return; }
+  if(act==="csvTemplate"){ saveFile("﻿Type,Make and model,Serial or asset tag\r\nLaptop,Dell Latitude 5440,NP-0142\r\n", "device-inventory-template.csv", "text/csv;charset=utf-8"); return; }
+  if(act==="importCSV"){
+    const fi=document.createElement("input"); fi.type="file"; fi.accept=".csv,text/csv";
+    fi.addEventListener("change",()=>{
+      const f=fi.files&&fi.files[0]; if(!f) return;
+      if(/\.xlsx?$/i.test(f.name)){ importMsg="That is an Excel workbook. In Excel use File, Save As, and pick CSV, then import that file."; render(); return; }
+      if(f.size>2000000){ importMsg="That file is too big for one person's devices. Filter it in Excel first."; render(); return; }
+      const rd=new FileReader();
+      rd.onload=()=>{
+        const n=importDevicesCSV(String(rd.result||""));
+        importMsg = n>0 ? "Imported "+n+" device"+(n===1?"":"s")+". Check them and remove any that are not theirs." : n<0 ? "Could not find a make and model or serial column. Try the blank template." : "No devices found in that file.";
+        if(n>0){ state.example=false; save(); }
+        const y=window.scrollY; render(); window.scrollTo(0,y);
+      };
+      rd.readAsText(f);
+    });
+    fi.click(); return;
+  }
+  if(act==="removeDevice"){
+    const idx=state.devices.findIndex(x=>x.id===a.dataset.dev); if(idx<0) return;
+    state.devices.splice(idx,1); save();
+    const y=window.scrollY; render(); window.scrollTo(0,y);
+    /* keep keyboard focus in the list: the row that moved up, else the one above, else Add device */
+    const btns=view.querySelectorAll('[data-act="removeDevice"]');
+    const f=btns[Math.min(idx,btns.length-1)] || view.querySelector('[data-act="addDevice"]'); if(f) f.focus({preventScroll:true});
+    return;
+  }
   const row=a.closest(".item"); if(!row) return;
   const id=row.dataset.id; const s=Object.assign({},itemState(id));
   if(act==="toggle"){ if(s.status==="done"){ s.status="open"; s.at=null; } else { s.status="done"; s.at=Date.now(); } }
