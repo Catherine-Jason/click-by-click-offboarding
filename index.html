@@ -161,6 +161,26 @@ table.wide{min-width:1040px}
 tr.stale td{background:var(--warn-soft)}
 .devdetails{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px}
 .ddcard{border:1px solid var(--line); border-radius:10px; padding:10px 12px; font-size:13px; min-width:0}
+/* v1.4: Why this matters, Learn mode, legal hold */
+.learn summary{cursor:pointer; color:var(--accent); font-weight:600; font-size:12.5px; width:max-content}
+.learn p{margin:6px 0 4px; font-size:13.5px}
+.srcs{display:flex; flex-wrap:wrap; gap:6px; align-items:center; font-size:12px}
+a.tag.src{color:var(--accent); border-color:var(--accent-soft); text-decoration:none; text-transform:none; letter-spacing:.02em}
+a.tag.src:hover{border-color:var(--accent)}
+.learn.lm{border-top:1px solid var(--line); padding-top:12px}
+.learn.lm summary{font-family:var(--f-display); font-size:15px; text-transform:uppercase; letter-spacing:.06em; color:var(--ink)}
+.gloss{display:grid; grid-template-columns:minmax(9em,auto) 1fr; gap:6px 16px; margin:10px 0 0; font-size:14px} .gloss dt{font-weight:600} .gloss dd{margin:0; color:var(--muted)}
+.srclist{list-style:none; padding:0; margin:10px 0; display:flex; flex-direction:column; gap:10px; font-size:14px}
+.srclist li{display:flex; flex-direction:column; gap:2px} .srclist span{color:var(--muted)} .srclist .links{display:flex; flex-wrap:wrap; gap:4px 14px}
+.srclist a,.note a{color:var(--accent)}
+.note{font-size:13px; color:var(--muted); border-left:3px solid var(--line); padding:2px 0 2px 10px}
+.item.s-paused{border-style:dashed; border-color:var(--warn); opacity:.85}
+.item .check:disabled{cursor:not-allowed; opacity:.4}
+.holdnote{font-size:13px; color:var(--warn); font-weight:600}
+.aligned{font-size:11.5px; color:var(--muted)}
+.systems label.holdopt:has(input:checked){border-color:var(--warn); background:var(--warn-soft)}
+#btnLearn[aria-pressed="true"]{border-color:var(--accent); background:var(--accent-soft); color:var(--accent)}
+.seg input:disabled + *{opacity:.5} .seg label:has(input:disabled){opacity:.45; cursor:not-allowed}
 .ddcard dl{display:grid; grid-template-columns:auto 1fr; gap:3px 12px; margin:6px 0 0} .ddcard dt{color:var(--muted)} .ddcard dd{margin:0; overflow-wrap:anywhere}
 .devempty{border:1px dashed var(--line); border-radius:8px; padding:12px; font-size:14px; color:var(--muted)}
 .dev{display:flex; flex-direction:column; gap:8px; padding:12px; border:1px solid var(--line); border-radius:10px; background:var(--surface)}
@@ -184,7 +204,7 @@ footer{font-size:12.5px; color:var(--muted); display:flex; flex-direction:column
 @media (prefers-reduced-motion:reduce){ *{transition:none!important} }
 @media print{
   body{background:#fff; color:#000}
-  .card,nav.steps,header .actions,.rowbtns,footer,.banner{display:none!important}
+  .card,nav.steps,header .actions,.rowbtns,footer,.banner,#learnMore{display:none!important}
   .panel{border:0; padding:0}
 }
 </style>
@@ -198,6 +218,7 @@ footer{font-size:12.5px; color:var(--muted); display:flex; flex-direction:column
       <p class="sub">Shut off every account, device and key when a staff member or volunteer leaves your nonprofit, one step at a time.</p>
     </div>
     <div class="actions">
+      <button class="btn" id="btnLearn" type="button" aria-pressed="false">Learn mode: Off</button>
       <button class="btn" id="btnExample" type="button">Load example</button>
       <button class="btn warn" id="btnNew" type="button">Start new</button>
     </div>
@@ -218,9 +239,11 @@ footer{font-size:12.5px; color:var(--muted); display:flex; flex-direction:column
 
   <main id="view"></main>
 
+  <div id="learnMore"></div>
+
   <footer>
-    <p><strong>Disclaimer:</strong> This tool is provided for educational purposes only. Your answers stay in your browser and are never collected, stored or shared. It does not replace guidance from your organization's IT, HR or legal team.</p>
-    <p>&copy; 2026 Catherine Jason &middot; Click by Click Offboarding v1.3 &middot; <a href="https://www.catherinejason.com" target="_blank" rel="noopener" style="color: var(--accent);">catherinejason.com</a></p>
+    <p><strong>Disclaimer:</strong> This tool is provided for educational purposes only. Its steps are aligned with, not compliant with, the NIST, CIS, HIPAA, PCI DSS and FERPA guidance it cites, and using it does not make your organization compliant. Laws vary by state and by the type of data you hold. Your answers stay in your browser and are never collected, stored or shared. It does not replace guidance from your organization's IT, HR or legal team.</p>
+    <p>&copy; 2026 Catherine Jason &middot; Click by Click Offboarding v1.4 &middot; <a href="https://www.catherinejason.com" target="_blank" rel="noopener" style="color: var(--accent);">catherinejason.com</a></p>
   </footer>
 </div>
 <textarea id="copyText" aria-hidden="true" tabindex="-1"></textarea>
@@ -615,11 +638,12 @@ function fmtStamp(ts){const d=new Date(ts); return d.toLocaleDateString("en-US",
 function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
 
 function nextFriday(){const d=new Date(); const add=(5-d.getDay()+7)%7||7; return isoDate(addDays(d,add))}
-function blank(){ return {step:"intake", example:false, intake:{role:"", type:"staff", departure:"planned", lastDay:"", doneBy:"", admin:false, systems:[], other:""}, items:{}, devices:[]} }
+function blankRegs(){ return {hipaa:false, pci:false, ferpa:false, hold:false}; }
+function blank(){ return {step:"intake", example:false, learn:false, intake:{role:"", type:"staff", departure:"planned", lastDay:"", doneBy:"", admin:false, systems:[], other:"", regs:blankRegs()}, items:{}, devices:[]} }
 function example(){
   const s = blank(); s.example = true;
   s.intake = {role:"Volunteer events lead", type:"volunteer", departure:"planned", lastDay:nextFriday(), doneBy:"Office manager", admin:false,
-    systems:["email","cloud","social","sharedpw","laptop","personal","keys"], other:"Event signup form (Google Forms)"};
+    systems:["email","cloud","social","sharedpw","laptop","personal","keys"], other:"Event signup form (Google Forms)", regs:blankRegs()};
   const lap = newDevice("laptop"); lap.model="Dell Latitude 5440"; lap.serial="Asset tag NP-0142"; lap.os="windows"; lap.enc="on";
   const tab = newDevice("tablet"); tab.id+="b"; tab.model="iPad (check in table at events)"; tab.serial="DMPXK2Q4LM"; tab.os="ios"; tab.enc="on";
   const ago = n => isoDate(addDays(new Date(), -n));
@@ -658,13 +682,186 @@ function cleanDetails(d){
   });
   return o;
 }
-function load(){ try{ const raw=localStorage.getItem(KEY); if(raw){ const s=JSON.parse(raw); if(s && s.intake){ if(!s.items||typeof s.items!=="object") s.items={}; if(!Array.isArray(s.intake.systems)) s.intake.systems=[]; s.devices=cleanDevices(s.devices); return s; } } }catch(e){} return null }
+function load(){ try{ const raw=localStorage.getItem(KEY); if(raw){ const s=JSON.parse(raw); if(s && s.intake){ if(!s.items||typeof s.items!=="object") s.items={}; if(!Array.isArray(s.intake.systems)) s.intake.systems=[]; s.devices=cleanDevices(s.devices);
+  /* v1.3 and older saves have no regulated data answers or Learn mode */
+  const r=blankRegs(), old=s.intake.regs; if(old && typeof old==="object") Object.keys(r).forEach(k=>{ r[k] = old[k]===true; }); s.intake.regs=r; s.learn = s.learn===true;
+  return s; } } }catch(e){} return null }
 function save(){ try{ localStorage.setItem(KEY, JSON.stringify(state)) }catch(e){} }
 
 let state = load() || example();
 let confirmNew = false;
 let importMsg = "";
 const openMore = new Set(); /* devices whose "More details" is open, kept across redraws */
+
+/* ================= v1.4: frameworks, regulated data and Learn mode ================= */
+const LAST_REVIEWED = "November 21, 2026";
+const ECFR = "https://www.ecfr.gov/current/";
+/* framework tags: every link goes to the official source */
+const TAGS = {
+  aa01:{label:"NIST CSF 2.0 PR.AA-01", url:"https://doi.org/10.6028/NIST.CSWP.29", about:"Identities and credentials are managed"},
+  aa05:{label:"NIST CSF 2.0 PR.AA-05", url:"https://doi.org/10.6028/NIST.CSWP.29", about:"Access permissions are managed and reviewed"},
+  am08:{label:"NIST CSF 2.0 ID.AM-08", url:"https://doi.org/10.6028/NIST.CSWP.29", about:"Devices, software and data are managed through their life cycle"},
+  sp88:{label:"NIST SP 800-88 Rev. 2", url:"https://csrc.nist.gov/pubs/sp/800/88/r2/final", about:"Guidelines for Media Sanitization"},
+  cis1:{label:"CIS Controls v8.1: 1", url:"https://www.cisecurity.org/controls/inventory-and-control-of-enterprise-assets", about:"Inventory and Control of Enterprise Assets"},
+  cis5:{label:"CIS Controls v8.1: 5", url:"https://www.cisecurity.org/controls/account-management", about:"Account Management"},
+  cis6:{label:"CIS Controls v8.1: 6", url:"https://www.cisecurity.org/controls/access-control-management", about:"Access Control Management"},
+  h308:{label:"HIPAA 164.308(a)(3)(ii)(C)", url:ECFR+"title-45/subtitle-A/subchapter-C/part-164/subpart-C/section-164.308", about:"Termination procedures"},
+  h310:{label:"HIPAA 164.310(d)(2)", url:ECFR+"title-45/subtitle-A/subchapter-C/part-164/subpart-C/section-164.310", about:"Device and media disposal and reuse"},
+  pci:{label:"PCI DSS 8.2.5", url:"https://www.pcisecuritystandards.org/document_library/", about:"Access for terminated users is immediately revoked"},
+  ferpa:{label:"FERPA 34 CFR Part 99", url:ECFR+"title-34/subtitle-A/part-99", about:"Family Educational Rights and Privacy"}
+};
+const REGS = [
+  {id:"hipaa", label:"Health information (HIPAA)", hint:"Patient or client health records, counseling or case notes"},
+  {id:"pci", label:"Card payments (PCI DSS)", hint:"Donations, fees or sales by credit or debit card"},
+  {id:"ferpa", label:"Student records (FERPA)", hint:"Education records from a school or district you work with"},
+  {id:"hold", label:"There is a lawsuit or investigation involving this person (legal hold)", hint:"Pauses every wipe and delete step"}
+];
+function hasReg(i,k){ return !!(i.regs && i.regs[k]); }
+/* steps added by the "Does your organization handle..." answers */
+TASKS.push(
+  {id:"hold_keep", phase:"before", urgent:true, alwaysUrgent:true, area:"Records", when:i=>hasReg(i,"hold"),
+    title:"Preserve their email, files and devices for the legal hold",
+    why:"Talk to your lawyer before you change anything. Block sign in instead of deleting, and keep every device exactly as it is."},
+  {id:"pci_revoke", phase:"day", urgent:true, alwaysUrgent:true, area:"Identity", when:i=>hasReg(i,"pci"),
+    title:"Turn off their access to card payment systems right away",
+    why:"Include the donation platform, card reader apps and any payment processor logins."},
+  {id:"pci_tokens", phase:"day", area:"Physical", when:i=>hasReg(i,"pci"),
+    title:"Collect or turn off any card reader, security token or payment key card",
+    why:"Count card readers against what was handed out, and turn off any token they used to sign in."},
+  {id:"hipaa_term", phase:"day", area:"Identity", when:i=>hasReg(i,"hipaa"),
+    title:"Turn off their access to health information in every system that holds it",
+    why:"Check the health or case record system, shared folders with client details and any patient portal."},
+  {id:"ferpa_access", phase:"day", area:"Identity", when:i=>hasReg(i,"ferpa"),
+    title:"Remove their access to student records",
+    why:"Check student information systems, shared rosters and school partner portals."},
+  {id:"ferpa_copies", phase:"day", area:"Data", when:i=>hasReg(i,"ferpa"),
+    title:"Make sure they did not keep copies of student records",
+    why:"Ask them to delete student lists from personal email and devices, and write down that they did."},
+  {id:"hipaa_media", phase:"after", area:"Endpoint", when:i=>hasReg(i,"hipaa"),
+    title:"Write down how health information was removed from their devices and media",
+    why:"Include USB drives and printed files. Note the method, the date and who did it."}
+);
+/* wipe and delete steps: paused while there is a legal hold */
+const WIPE_IDS = new Set(["l_wipe","ph_wipe","e_after","os_win_reset","os_win_intune","os_apple_mdm","os_apple_erase","os_and_reset","os_cros_powerwash","os_cros_deprov","os_oth_wipe","hipaa_media"]);
+/* "Why this matters": two plain sentences and the framework tags for every step */
+const LEARN = {
+  u_timing:["Most harm from a departing person happens in the hours right after they find out. Cutting access during the conversation closes that window.",["aa01","aa05","cis5","cis6"]],
+  inv:["Every account or device you miss is a door left open. A written list also makes the rest of this checklist faster and gives you proof later.",["am08","aa01","cis1","cis5"]],
+  handoff:["Naming a new owner keeps work moving and stops anyone from deleting files just to tidy up. It also makes one person responsible for each shared account after today.",["aa05","cis6"]],
+  e_fwd:["An auto reply keeps donors and partners from feeling ignored. Sending their mail to a coworker means requests and invoices do not get lost.",["aa05","cis6"]],
+  c_own:["Many cloud apps delete files along with the account that owns them. Moving ownership first keeps your organization's work safe.",["am08","aa05"]],
+  l_backup:["Work saved only on a laptop disappears when the laptop is wiped. Backing it up first means you can wipe the device without losing anything.",["am08","sp88"]],
+  ph_mfa:["Many shared accounts send login codes by text. If those codes go to a phone that leaves with the person, you can get locked out of your own accounts.",["aa01","cis5"]],
+  a_first:["Admin accounts can create new logins, change security settings and read other people's data. Taking admin rights away first removes the most powerful access before anything else.",["aa05","cis5","cis6"]],
+  e_block:["Blocking sign in stops anyone from using the account while keeping its email and files. You can still archive or delete it later.",["aa01","cis5"]],
+  e_reset:["Phones and laptops can stay signed in for weeks after a password change. Signing out everywhere ends those open sessions now.",["aa01","cis5"]],
+  e_mfa:["An authenticator app or phone number left on the account can be used to reset the password and get back in. Removing them closes that path.",["aa01","cis5"]],
+  e_rules:["A forwarding rule keeps sending copies of new mail even after the person is gone. Checking for rules catches a quiet leak.",["aa05","cis6"]],
+  c_links:["Links shared with anyone who has the link keep working after the person leaves. Turning them off keeps files from being opened outside your organization.",["aa05","cis6"]],
+  d_disable:["Donor and client databases hold names, addresses and giving history. Turning off the login protects the people who trust you with their information.",["aa01","aa05","cis5","cis6"]],
+  d_export:["Large downloads right before someone leaves can mean data is walking out the door. The export log shows what left and when.",["aa05","cis6"]],
+  f_bank:["Bank, payroll and payment access is where a departing person or an attacker can do the most harm the fastest. Removing it on the last day protects your money.",["aa05","cis6"]],
+  f_card:["A company card can still be charged after someone leaves. Card details saved in online stores can be used too.",["aa05"]],
+  s_admin:["A former admin can post as your organization or delete your page. Removing them protects your public voice.",["aa05","cis6"]],
+  s_pw:["A shared login stays open until the password changes. Changing it is the only way to remove one person from a shared account.",["aa01","cis5"]],
+  s_two:["If only one person can manage a page, losing them can lock you out for good. Two current admins keep you in control.",["aa05"]],
+  w_admin:["Whoever controls the domain controls your website and where your email goes. Keeping that access tight protects both.",["aa05","cis6"]],
+  w_pw:["Passwords they knew still work until you change them. Updating the registrar contact makes sure renewal and security notices reach you.",["aa01","cis5"]],
+  p_change:["A shared password cannot be turned off for one person. Changing it is how you remove access they still remember.",["aa01","cis5"]],
+  p_vault:["Removing them from the vault stops them from seeing saved passwords. Anything they copied before still needs a new password.",["aa05","cis5"]],
+  a_created:["Admins sometimes create test accounts or connect outside apps. Those leftovers keep working after the admin leaves unless you remove them.",["aa01","cis5","cis6"]],
+  l_collect:["A laptop or tablet that stays out can still hold work files and saved logins. Getting it back lets you check it, back it up and wipe it.",["am08","cis1"]],
+  ph_collect:["A work phone often holds login codes, contacts and messages. Getting it back keeps that information inside your organization.",["am08","cis1"]],
+  bp_remove:["Work email on a personal phone keeps syncing until it is removed. Signing out of the work apps protects your data without touching their personal things.",["aa01","cis5"]],
+  k_collect:["Keys and badges are access too, just for the building. Counting them against what was handed out shows if anything is missing.",["aa05","cis6"]],
+  k_disable:["A badge or alarm code that still works lets someone into the building after hours. Turning it off closes physical access the same day.",["aa05","cis6"]],
+  groups:["Group chats, mailing lists and calendars often share plans and client details. Removing them keeps internal talk internal.",["aa05","cis6"]],
+  notes:["Written passwords and backup codes work just like a login. Collecting them closes access that does not show up in any system.",["aa01","cis5"]],
+  check30:["Accounts sometimes get turned back on by a sync, a vendor or a mistake. A check after 30 days confirms access really stayed off.",["aa05","cis5"]],
+  e_after:["Archiving the mailbox keeps its history in case you need it later. Freeing the license stops you paying for an account nobody uses.",["am08","aa01"]],
+  f_signer:["Banks keep their own list of who can sign and approve. Until you update it in writing, a former signer may still be on file.",["aa05"]],
+  l_wipe:["A wipe removes their files and saved logins before the device goes to someone new. Doing it the right way protects both the person and your organization.",["sp88","am08","cis1"]],
+  ph_wipe:["A reset removes their accounts, messages and saved logins. Doing it after the login codes have moved keeps you from getting locked out.",["sp88","am08","cis1"]],
+  a_review:["Admin lists grow as people come and go. A regular review keeps only the people who need admin access on the list.",["aa05","cis5","cis6"]],
+  save:["A dated record shows exactly what you did and when. Insurers, auditors and funders often ask for this kind of proof.",["aa05","am08"]],
+  other:["Systems you add yourself are often the ones nobody else remembers. Removing access here closes gaps the main list might miss.",["aa01","aa05","cis5"]],
+  dev_missing:["A missing device can hold files and saved passwords. Locking or wiping it from a distance and changing those passwords limits what anyone who finds it can do.",["am08","sp88","cis1"]],
+  os_win_key:["BitLocker keeps the drive locked to anyone without the key. Saving the key means you can still get your files back if the laptop ever asks for it.",["am08","cis1"]],
+  os_win_intune:["Intune and Entra ID treat known devices as trusted. Removing the old record makes sure the laptop cannot be used to get back into their account.",["am08","aa01","cis1"]],
+  os_win_reset:["Reset this PC with Remove everything clears their files and accounts. It is the built in way to clear a Windows laptop before reuse.",["sp88","am08"]],
+  os_apple_findmy:["Activation Lock is great against theft, but it also locks you out of your own device. Turning off Find My while they are still here avoids a device nobody can use.",["am08","cis1"]],
+  os_apple_mdm:["Jamf and Apple Business Manager decide who manages each device. Updating them keeps the device under your control and ready for the next person.",["am08","cis1"]],
+  os_apple_erase:["Erase All Content and Settings throws away the encryption keys, so the old data cannot be read. It is the built in way to clear an Apple device for reuse.",["sp88","am08"]],
+  os_and_account:["Factory Reset Protection ties a reset phone to the last Google account on it. Removing their account first means you can set the phone up again.",["am08","cis1"]],
+  os_and_reset:["A factory reset removes their apps, accounts and files. Android phones are encrypted, so a reset leaves the old data unreadable.",["sp88","am08"]],
+  os_cros_enroll:["An enrolled Chromebook stays managed by your organization even after a reset. Checking enrollment first keeps it from turning into an unmanaged device.",["am08","cis1"]],
+  os_cros_powerwash:["Powerwash removes local accounts and files and returns the Chromebook to a clean state. Because it is enrolled, it comes back under your control.",["sp88","am08"]],
+  os_cros_deprov:["Deprovisioning releases the device from your Google account and frees its license. Only do it for devices leaving your organization for good.",["am08","cis1"]],
+  os_oth_signout:["Accounts left signed in keep syncing data to the device. Signing out first means nothing new lands on it.",["aa01","cis5"]],
+  os_oth_wipe:["Any device can hold leftover files and logins. Following the maker's reset steps clears them before reuse.",["sp88","am08"]],
+  hold_keep:["A legal hold means information that could matter in a case has to be kept exactly as it is. Wiping or deleting it, even as routine cleanup, can lead to serious penalties.",[]],
+  pci_revoke:["PCI DSS says access for people who leave has to be removed right away, not at the end of the week. Card systems are a common target, so this one cannot wait.",["pci","aa05","cis6"]],
+  pci_tokens:["Card readers, tokens and payment key cards are physical access to your payment systems. A password change does not turn them off.",["pci","cis1"]],
+  hipaa_term:["HIPAA expects written steps for ending access to health information when someone leaves. Doing it the same day protects your clients and shows you followed your own policy.",["h308","aa05","cis6"]],
+  hipaa_media:["Health information has to be removed from devices and media before they are reused or thrown away. Writing down how and when gives you proof if anyone asks.",["h310","sp88"]],
+  ferpa_access:["FERPA limits student records to people with a real educational reason to see them. When someone leaves, that reason ends, so their access should end too.",["ferpa","aa05","cis6"]],
+  ferpa_copies:["Student lists in a personal inbox or on a personal phone are still student records. Asking for them to be deleted and noting it here protects the students.",["ferpa","am08"]]
+};
+function learnFor(t){
+  const L = LEARN[t.id] || LEARN[/^other_/.test(t.id)? "other" : ""] || ["This step closes one more way back in. Write down what you did in the note.",["aa05"]];
+  /* health information adds the HIPAA disposal rule to every wipe step */
+  const tags = L[1].slice(); if(WIPE_IDS.has(t.id) && hasReg(state.intake,"hipaa") && tags.indexOf("h310")===-1) tags.push("h310");
+  return {text:L[0], tags:tags};
+}
+const GLOSSARY = [
+  ["Activation Lock","An Apple feature that ties an iPhone, iPad or Mac to an Apple ID. After a wipe, the device asks for that Apple ID password before anyone can use it."],
+  ["Admin rights","Extra permissions that let someone add users, change settings and see other people's data."],
+  ["Asset tag","A label or number your organization puts on equipment so you can track it."],
+  ["BitLocker","The drive encryption built into Windows. Files stay unreadable without the right password or recovery key."],
+  ["Cardholder data","Credit or debit card numbers and the details that go with them. PCI DSS covers how it is protected."],
+  ["Deprovision","Removing a device from your management console so it is no longer tied to your organization."],
+  ["Education records","Records about a student kept by a school or by someone working for the school. FERPA covers who can see them."],
+  ["Factory Reset Protection","An Android feature that asks for the last Google account used on a phone after it is reset."],
+  ["FileVault","The drive encryption built into macOS."],
+  ["Least privilege","Giving each person only the access they need to do their job, and nothing more."],
+  ["Legal hold","An instruction to keep information that could matter in a lawsuit or investigation. While it is in place, nothing related can be deleted or wiped."],
+  ["MDM","Mobile device management. A tool like Intune, Jamf or Google Admin that lets your organization manage, lock and wipe devices from a distance."],
+  ["MFA","Multi-factor authentication. A second check at sign in, like a code from an app or a text message."],
+  ["Offboarding","Everything you do to close access and collect equipment when someone leaves."],
+  ["PHI","Protected health information. Health details about a person that HIPAA covers."],
+  ["Sanitization","Removing data from a device or drive so it cannot be recovered. NIST SP 800-88 explains the methods."]
+];
+const NOTE_DISPOSAL = 'State data disposal laws vary. Many states expect personal information to be destroyed so it cannot be read, and some ask for a written disposal policy. Check your state\'s rules before you recycle or throw away a device. <a href="https://www.ncsl.org/technology-and-communication/data-security-laws-private-sector" target="_blank" rel="noopener">See state data security laws (NCSL)</a>';
+const NOTE_EQUIPMENT = 'If equipment is not returned, bring it to HR. Do not take the cost out of their final paycheck on your own, because federal and state wage laws limit those deductions. <a href="https://www.dol.gov/agencies/whd/fact-sheets/16-flsa-wage-deductions" target="_blank" rel="noopener">See U.S. Department of Labor Fact Sheet #16</a>';
+const SOURCES = [
+  ["NIST Cybersecurity Framework (CSF) 2.0","PR.AA-01 identities and credentials, PR.AA-05 access permissions, ID.AM-08 life cycle of devices and data.",[["CSF 2.0 document","https://doi.org/10.6028/NIST.CSWP.29"],["NIST CSF home","https://www.nist.gov/cyberframework"]]],
+  ["NIST SP 800-88 Rev. 2, Guidelines for Media Sanitization","How to clear, purge or destroy data before reuse or disposal. Published September 2025.",[["NIST SP 800-88 Rev. 2","https://csrc.nist.gov/pubs/sp/800/88/r2/final"]]],
+  ["CIS Critical Security Controls v8.1","Control 1 Inventory and Control of Enterprise Assets, Control 5 Account Management, Control 6 Access Control Management.",[["CIS Controls v8.1","https://www.cisecurity.org/controls/v8-1"],["Control 1",TAGS.cis1.url],["Control 5",TAGS.cis5.url],["Control 6",TAGS.cis6.url]]],
+  ["HIPAA Security Rule (45 CFR Part 164)","164.308(a)(3)(ii)(C) termination procedures. 164.310(d)(2) disposal and reuse of devices and media.",[["45 CFR 164.308",TAGS.h308.url],["45 CFR 164.310",TAGS.h310.url]]],
+  ["PCI DSS v4.0.1","Requirement 8.2.5: access for terminated users is immediately revoked.",[["PCI SSC document library",TAGS.pci.url]]],
+  ["FERPA (34 CFR Part 99)","Who can see student education records and when.",[["34 CFR Part 99",TAGS.ferpa.url],["Student Privacy Policy Office","https://studentprivacy.ed.gov/"]]],
+  ["State data disposal laws","Rules differ by state. NCSL keeps a summary of state data security laws, including disposal rules.",[["NCSL state data security laws","https://www.ncsl.org/technology-and-communication/data-security-laws-private-sector"]]],
+  ["Paycheck deductions for unreturned equipment","Federal limits on deductions for employer property. Many states add stricter rules.",[["DOL Fact Sheet #16","https://www.dol.gov/agencies/whd/fact-sheets/16-flsa-wage-deductions"]]]
+];
+const learnOpen = new Set(), learnClosed = new Set(); /* single explanations opened or closed by hand */
+function isLearnOpen(id){ return state.learn ? !learnClosed.has(id) : learnOpen.has(id); }
+function tagLinks(tags){
+  return tags.map(k=>'<a class="tag src" href="'+TAGS[k].url+'" target="_blank" rel="noopener" title="'+esc(TAGS[k].about)+'">'+esc(TAGS[k].label)+'</a>').join("");
+}
+function learnHTML(t){
+  const L=learnFor(t), key="step_"+t.id;
+  return '<details class="learn" data-learn="'+key+'"'+(isLearnOpen(key)?" open":"")+'><summary>Why this matters</summary>'+
+    '<p>'+esc(L.text)+'</p>'+(L.tags.length? '<div class="srcs"><span class="muted">Aligned with:</span>'+tagLinks(L.tags)+'</div>' : '<div class="srcs"><span class="muted">Ask your lawyer which rules apply.</span></div>')+'</details>';
+}
+function viewLearnMore(){
+  const g='<details class="learn lm" data-learn="glossary"'+(isLearnOpen("glossary")?" open":"")+'><summary>Glossary</summary><dl class="gloss">'+
+    GLOSSARY.map(x=>'<dt>'+esc(x[0])+'</dt><dd>'+esc(x[1])+'</dd>').join("")+'</dl></details>';
+  const s='<details class="learn lm" data-learn="sources"'+(isLearnOpen("sources")?" open":"")+'><summary>Sources</summary><ul class="srclist">'+
+    SOURCES.map(x=>'<li><b>'+esc(x[0])+'</b><span>'+esc(x[1])+'</span><span class="links">'+x[2].map(l=>'<a href="'+l[1]+'" target="_blank" rel="noopener">'+esc(l[0])+'</a>').join("")+'</span></li>').join("")+
+    '</ul><p class="muted">Last reviewed: '+LAST_REVIEWED+'. Rules change, so check the source before you rely on it.</p></details>';
+  return '<section class="panel"><div><h2>Learn more</h2><p class="muted">Plain-language terms and the official sources behind each step.</p></div>'+
+    '<p class="note">'+NOTE_DISPOSAL+'</p><p class="note">'+NOTE_EQUIPMENT+'</p>'+g+s+'</section>';
+}
 
 function phaseOf(t){
   if(state.intake.departure==="unplanned"){
@@ -689,7 +886,8 @@ function activeTasks(){
   }
   osTasks().forEach(t=>list.push(Object.assign(t,{ph: phaseOf(t)})));
   const order = {before:0, day:1, after:2};
-  return list.map((t,n)=>Object.assign(t,{n})).sort((a,b)=> order[a.ph]-order[b.ph] || (b.urgent?1:0)-(a.urgent?1:0) || a.n-b.n);
+  const hold = hasReg(i,"hold");
+  return list.map((t,n)=>Object.assign(t,{n, paused: hold && WIPE_IDS.has(t.id)})).sort((a,b)=> order[a.ph]-order[b.ph] || (b.urgent?1:0)-(a.urgent?1:0) || a.n-b.n);
 }
 /* OS-specific device steps: one set per OS group, listing which devices it covers.
    The ids stay the same when devices are renamed, so checked steps stay checked. */
@@ -746,13 +944,15 @@ function missingWhy(missing){
   const weak=missing.filter(d=>hasOS(d) && d.enc!=="on").length;
   const warn = !weak ? "" : missing.length===1 ? " Encryption is off or unknown on it, so treat files on it as exposed."
     : " Encryption is off or unknown on "+(weak===1?"one of them":"some of them")+", so treat files on "+(weak===1?"that device":"those devices")+" as exposed.";
-  return parts.join(" ")+warn+" Write down what you did in the note.";
+  const hold = hasReg(state.intake,"hold") ? " Because of the legal hold, lock it instead of wiping it and tell your lawyer." : "";
+  return parts.join(" ")+warn+hold+" Write down what you did in the note.";
 }
 function itemState(id){ return state.items[id] || {status:"open", note:"", at:null} }
+/* steps paused for a legal hold are not open: they wait for the lawyer, not for you */
 function counts(list){
-  let done=0, na=0, open=0;
-  list.forEach(t=>{const s=itemState(t.id).status; if(s==="done")done++; else if(s==="na")na++; else open++;});
-  return {done,na,open,total:list.length};
+  let done=0, na=0, open=0, paused=0;
+  list.forEach(t=>{const s=itemState(t.id).status; if(t.paused) paused++; else if(s==="done")done++; else if(s==="na")na++; else open++;});
+  return {done,na,open,paused,total:list.length};
 }
 function devCounts(){
   const c={out:0, returned:0, wiped:0, missing:0, total:state.devices.length};
@@ -762,7 +962,7 @@ function devCounts(){
 /* steps plus devices: a device still out counts as open, any other status counts as closed */
 function totals(){
   const c = counts(activeTasks()); const d = devCounts();
-  return {done:c.done+(d.total-d.out), na:c.na, open:c.open+d.out, total:c.total+d.total};
+  return {done:c.done+(d.total-d.out), na:c.na, open:c.open+d.out, paused:c.paused, total:c.total+d.total};
 }
 function phaseInfo(ph){
   const ld = parseDate(state.intake.lastDay); const unplanned = state.intake.departure==="unplanned";
@@ -775,11 +975,11 @@ function personLabel(){ const i=state.intake; return i.role ? i.role : "Departin
 /* ---------- card ---------- */
 function renderCard(){
   const c = totals();
-  const pct = c.total? Math.round((c.done+c.na)/c.total*100) : 0;
+  const pct = c.total? Math.round((c.done+c.na+c.paused)/c.total*100) : 0;
   const i = state.intake;
   document.getElementById("cardWho").textContent = personLabel();
   const ld = parseDate(i.lastDay);
-  document.getElementById("cardSub").textContent = (i.type==="volunteer"?"Volunteer":i.type==="board"?"Board member":"Staff")+" · "+(i.departure==="unplanned"?"Unplanned exit":"Last day "+(ld?ld.toLocaleDateString("en-US",{month:"short",day:"numeric"}):"not set"))+" · "+(c.done+c.na)+" of "+c.total+" steps";
+  document.getElementById("cardSub").textContent = (i.type==="volunteer"?"Volunteer":i.type==="board"?"Board member":"Staff")+" · "+(i.departure==="unplanned"?"Unplanned exit":"Last day "+(ld?ld.toLocaleDateString("en-US",{month:"short",day:"numeric"}):"not set"))+" · "+(c.done+c.na)+" of "+c.total+" steps"+(c.paused? " · "+c.paused+" paused for legal hold" : "");
   document.getElementById("cardBar").style.width = pct+"%";
   const closed = c.total>0 && c.open===0;
   document.getElementById("card").classList.toggle("closed", closed);
@@ -819,6 +1019,9 @@ function viewIntake(){
     '</div><small>If you are not sure, treat it as yes.</small></div>'+
   '</div>'+
   '<div class="field"><span class="legend">What did they have access to?</span><div class="systems">'+sys+'</div></div>'+
+  '<div class="field"><span class="legend">Does your organization handle...</span><div class="systems">'+
+    REGS.map(r=>'<label for="reg_'+r.id+'"'+(r.id==="hold"?' class="holdopt"':'')+'><input type="checkbox" id="reg_'+r.id+'" data-reg="'+r.id+'"'+(hasReg(i,r.id)?" checked":"")+'><span>'+esc(r.label)+'<small>'+esc(r.hint)+'</small></span></label>').join("")+
+  '</div><small>Each one adds the steps those rules expect. A legal hold pauses every wipe and delete step.</small></div>'+
   '<div class="field"><label for="other">Any other systems?</label><input type="text" id="other" placeholder="Separate with commas. Example: Zoom, Canva, scheduling app" value="'+esc(i.other)+'"></div>'+
   viewDeviceInputs()+
   '<div class="formfoot"><span class="muted" id="buildCount">This builds a checklist of <b>'+n+'</b> steps.</span><button class="btn primary" type="button" data-go="list">Build checklist</button></div>'+
@@ -886,12 +1089,14 @@ function viewDeviceCheckin(){
     return (has(i,"laptop")||has(i,"phone")) ? '<div class="banner"><span>No devices listed. Add them on the intake screen so you can check each one back in.</span><button class="btn" type="button" data-go="intake">Add devices</button></div>' : "";
   }
   const d = devCounts();
+  const hold = hasReg(i,"hold");
   let html = '<div class="phase"><div class="phase-head"><h3>Device check in</h3><span class="when">'+esc(fmt(parseDate(i.lastDay)))+' · '+(d.total-d.out)+'/'+d.total+'</span></div>';
+  if(hold) html += '<div class="banner warn"><span><b>Legal hold.</b> Keep every device exactly as it is. Wiped and ready to reuse is turned off until the hold is lifted.</span></div>';
   state.devices.forEach(dev=>{
     html += '<div class="dev s-'+dev.status+'" data-dev="'+dev.id+'">'+
       '<div><div class="t">'+esc(devName(dev))+'</div><div class="serial">'+(hasOS(dev)? esc(osLabel(dev.os))+' · '+esc(encText(dev))+' · ' : '')+(dev.serial? "Serial or asset tag: "+esc(dev.serial) : "No serial or asset tag entered")+'</div></div>'+
       '<div class="seg" role="radiogroup" aria-label="Status for '+esc(devName(dev))+'">'+
-        DEVICE_STATUS.map(s=>'<label><input type="radio" name="devst_'+dev.id+'" data-devstatus="'+dev.id+'" value="'+s.id+'"'+(dev.status===s.id?" checked":"")+'>'+esc(s.label)+'</label>').join("")+
+        DEVICE_STATUS.map(s=>'<label><input type="radio" name="devst_'+dev.id+'" data-devstatus="'+dev.id+'" value="'+s.id+'"'+(dev.status===s.id?" checked":"")+(hold&&s.id==="wiped"&&dev.status!=="wiped"?" disabled":"")+'>'+esc(s.label)+'</label>').join("")+
       '</div>'+
       (dev.at?'<span class="stamp">'+esc(devStatusLabel(dev.status))+' '+esc(fmtStamp(dev.at))+'</span>':"")+
       '<div class="ddates" data-dates="'+dev.id+'">'+devDates(dev)+'</div>'+
@@ -899,28 +1104,36 @@ function viewDeviceCheckin(){
       devMore(dev)+
     '</div>';
   });
+  html += '<p class="note">'+NOTE_DISPOSAL+'</p>';
+  if(d.out || d.missing) html += '<p class="note">'+NOTE_EQUIPMENT+'</p>';
   return html+'</div>';
 }
 
+function holdBanner(){
+  return '<div class="banner warn"><span><b>Legal hold.</b> Every wipe and delete step is paused. Do not wipe, reset or delete their devices, email or files until your lawyer says the hold is lifted.</span></div>';
+}
 function viewList(){
   const list = activeTasks();
   const unplanned = state.intake.departure==="unplanned";
   let html = '<section class="panel">'+exampleBanner()+
     '<div><h2>Checklist for '+esc(personLabel())+'</h2><p class="muted">Check each step when it is done. Mark a step as not needed if it does not apply.</p></div>';
   if(unplanned) html += '<div class="banner warn"><span><b>Unplanned exit.</b> Do the steps under Right away before or at the same time the person is told.</span></div>';
+  if(hasReg(state.intake,"hold")) html += holdBanner();
   ["before","day","after"].forEach(ph=>{
     const items = list.filter(t=>t.ph===ph); if(!items.length) return;
     const info = phaseInfo(ph); const c = counts(items);
-    html += '<div class="phase"><div class="phase-head"><h3>'+info.label+'</h3><span class="when">'+esc(info.when)+' · '+(c.done+c.na)+'/'+c.total+'</span></div>';
+    html += '<div class="phase"><div class="phase-head"><h3>'+info.label+'</h3><span class="when">'+esc(info.when)+' · '+(c.done+c.na+c.paused)+'/'+c.total+'</span></div>';
     items.forEach(t=>{
       const s = itemState(t.id);
-      html += '<div class="item s-'+s.status+'" data-id="'+t.id+'">'+
-        '<button class="check" type="button" data-act="toggle" aria-pressed="'+(s.status==="done")+'" aria-label="Mark done: '+esc(t.title)+'">'+CHECK+'</button>'+
+      html += '<div class="item s-'+(t.paused?"paused":s.status)+'" data-id="'+t.id+'"'+(t.paused?' data-paused="1"':'')+'>'+
+        '<button class="check" type="button" data-act="toggle" aria-pressed="'+(s.status==="done"&&!t.paused)+'" aria-label="Mark done: '+esc(t.title)+'"'+(t.paused?' disabled':'')+'>'+CHECK+'</button>'+
         '<div class="body"><div class="t">'+esc(t.title)+'</div><div class="why">'+esc(t.why)+'</div>'+
-        '<div class="meta">'+(t.urgent&&(unplanned||t.alwaysUrgent)?'<span class="tag urgent">Urgent</span>':"")+'<span class="tag">'+esc(t.area)+'</span>'+
-        (s.status==="done"&&s.at?'<span class="stamp">Done '+esc(fmtStamp(s.at))+'</span>':"")+
-        '<button class="linkbtn" type="button" data-act="skip">'+(s.status==="na"?"Undo not needed":"Not needed")+'</button>'+
+        (t.paused? '<div class="holdnote">Paused for the legal hold. Do not do this step until your lawyer says the hold is lifted.</div>' : '')+
+        '<div class="meta">'+(t.paused?'<span class="tag urgent">Paused: legal hold</span>':'')+(t.urgent&&(unplanned||t.alwaysUrgent)?'<span class="tag urgent">Urgent</span>':"")+'<span class="tag">'+esc(t.area)+'</span>'+
+        (s.status==="done"&&s.at&&!t.paused?'<span class="stamp">Done '+esc(fmtStamp(s.at))+'</span>':"")+
+        (t.paused? '' : '<button class="linkbtn" type="button" data-act="skip">'+(s.status==="na"?"Undo not needed":"Not needed")+'</button>')+
         '<button class="linkbtn" type="button" data-act="note">'+(s.note?"Edit note":"Add note")+'</button></div>'+
+        learnHTML(t)+
         '<textarea id="note_'+t.id+'" data-note="'+t.id+'" placeholder="Example: Laptop serial 5CG1234, returned to front desk"'+(s.note?"":" hidden")+'>'+esc(s.note)+'</textarea>'+
         '</div></div>';
     });
@@ -942,15 +1155,20 @@ function recordText(){
   lines.push("Completed by: "+(i.doneBy||"Not entered"));
   lines.push("Admin access: "+(i.admin?"Yes":"No"));
   lines.push("Record created: "+new Date().toLocaleString("en-US"));
-  lines.push("Summary: "+c.done+" done, "+c.na+" not needed, "+c.open+" open, "+c.total+" total");
+  const regNames = REGS.filter(r=>r.id!=="hold" && hasReg(i,r.id)).map(r=>r.label);
+  if(regNames.length) lines.push("Regulated data: "+regNames.join(", "));
+  if(hasReg(i,"hold")) lines.push("LEGAL HOLD: every wipe and delete step is paused until your lawyer says the hold is lifted.");
+  lines.push("Summary: "+c.done+" done, "+c.na+" not needed, "+c.open+" open, "+(c.paused? c.paused+" paused for legal hold, " : "")+c.total+" total");
+  lines.push("Guidance: steps are aligned with NIST CSF 2.0, NIST SP 800-88 Rev. 2 and CIS Controls v8.1"+(regNames.length? " and the rules for the regulated data above" : "")+". This record is not a certification of compliance. Laws vary by state and by the type of data you hold.");
   if(state.devices.length){ const d=devCounts(); lines.push("Devices: "+(d.returned+d.wiped)+" returned, "+d.missing+" missing, "+d.out+" still out, "+d.total+" total"); }
   ["before","day","after"].forEach(ph=>{
     const items = list.filter(t=>t.ph===ph); if(!items.length) return;
     lines.push(""); lines.push(phaseInfo(ph).label.toUpperCase()+" ("+phaseInfo(ph).when+")");
     items.forEach(t=>{
       const s=itemState(t.id);
-      const st = s.status==="done" ? "[DONE "+(s.at?fmtStamp(s.at):"")+"]" : s.status==="na" ? "[NOT NEEDED]" : "[OPEN]";
-      lines.push(st+" "+t.title+(s.note?"\n    Note: "+s.note:""));
+      const st = t.paused ? "[PAUSED: LEGAL HOLD]" : s.status==="done" ? "[DONE "+(s.at?fmtStamp(s.at):"")+"]" : s.status==="na" ? "[NOT NEEDED]" : "[OPEN]";
+      const tags = learnFor(t).tags;
+      lines.push(st+" "+t.title+(s.note?"\n    Note: "+s.note:"")+(tags.length? "\n    Aligned with: "+tags.map(k=>TAGS[k].label).join(", ") : ""));
     });
   });
   if(state.devices.length){
@@ -974,10 +1192,12 @@ function viewRecord(){
   let rows = "";
   list.forEach(t=>{
     const s=itemState(t.id);
-    const st = s.status==="done" ? '<span class="st done">Done'+(s.at?" "+esc(fmtStamp(s.at)):"")+'</span>' : s.status==="na" ? '<span class="st na">Not needed</span>' : '<span class="st open">Open</span>';
-    rows += '<tr><td>'+esc(phaseInfo(t.ph).label)+'</td><td>'+esc(t.title)+'</td><td>'+st+'</td><td>'+esc(s.note)+'</td></tr>';
+    const st = t.paused ? '<span class="st missing">Paused: legal hold</span>' : s.status==="done" ? '<span class="st done">Done'+(s.at?" "+esc(fmtStamp(s.at)):"")+'</span>' : s.status==="na" ? '<span class="st na">Not needed</span>' : '<span class="st open">Open</span>';
+    const tags = learnFor(t).tags;
+    rows += '<tr><td>'+esc(phaseInfo(t.ph).label)+'</td><td>'+esc(t.title)+(tags.length? '<br><span class="aligned">Aligned with '+esc(tags.map(k=>TAGS[k].label).join(", "))+'</span>' : '')+'</td><td>'+st+'</td><td>'+esc(s.note)+'</td></tr>';
   });
   const d = devCounts();
+  const regNames = REGS.filter(r=>r.id!=="hold" && hasReg(i,r.id)).map(r=>r.label);
   let devRows = "";
   const na='<span class="muted">n/a</span>', dash='<span class="muted">—</span>';
   const dcell=iso=> iso? esc(fmtShort(iso)) : dash;
@@ -1002,6 +1222,8 @@ function viewRecord(){
   '<div><h2>Offboarding record</h2><p class="muted">Proof that access was removed. Keep a copy with your HR or IT files.</p></div>'+
   (openMsg.length? '<div class="banner warn"><span><b>'+openMsg.join(" and ")+' still open.</b> Finish them or mark them as not needed before you save this record.</span><button class="btn" type="button" data-go="list">Go to checklist</button></div>' : '<div class="banner"><span><b>All steps are closed.</b> Access for this person has been removed.</span></div>')+
   (d.missing? '<div class="banner warn"><span><b>'+d.missing+' device'+(d.missing===1?" is":"s are")+' missing.</b> Make sure it is locked or wiped, and follow your policy for lost equipment.</span></div>' : "")+
+  (hasReg(i,"hold")? holdBanner() : "")+
+  (regNames.length? '<p class="muted">Regulated data: '+esc(regNames.join(", "))+'.</p>' : "")+
   '<div class="recordhead">'+
     '<div class="kv"><span>Person or role</span><b>'+esc(personLabel())+'</b></div>'+
     '<div class="kv"><span>Last day</span><b>'+esc(fmt(parseDate(i.lastDay)))+'</b></div>'+
@@ -1014,7 +1236,9 @@ function viewRecord(){
   (state.devices.length? '<h3>Device inventory</h3>'+
     (staleN? '<div class="banner warn"><span><b>'+staleN+' device'+(staleN===1?" has":"s have")+' not been updated in over 30 days.</b> Install updates before giving '+(staleN===1?"it":"them")+' to someone else.</span></div>' : "")+
     '<div class="tablewrap"><table class="wide"><thead><tr><th>Device</th><th>OS</th><th>Assigned to</th><th>Encryption</th><th>Last updated</th><th>Return due</th><th>Returned</th><th>Backed up</th><th>Wiped</th><th>Next step</th><th>Status</th></tr></thead><tbody>'+devRows+'</tbody></table></div>'+
-    '<h3>Device details</h3><div class="devdetails">'+cards+'</div>' : "")+
+    '<h3>Device details</h3><div class="devdetails">'+cards+'</div>'+
+    '<p class="note">'+NOTE_DISPOSAL+'</p>'+((d.out||d.missing)? '<p class="note">'+NOTE_EQUIPMENT+'</p>' : '') : "")+
+  '<p class="muted aligned-note">Steps are aligned with the frameworks shown, not a certification of compliance. Laws vary by state and by the type of data you hold.</p>'+
   '<div class="rowbtns"><button class="btn primary" type="button" data-act="copy" id="btnCopy">Copy record</button>'+
   (TOP? '<button class="btn" type="button" data-act="download">Download as text file</button>'+(state.devices.length?'<button class="btn" type="button" data-act="exportCSV">Download devices for Excel (.csv)</button>':'')+'<button class="btn" type="button" data-act="print">Print</button>' : '')+
   '</div></section>';
@@ -1024,6 +1248,8 @@ function render(){
   const v = document.getElementById("view");
   v.innerHTML = state.step==="list" ? viewList() : state.step==="record" ? viewRecord() : viewIntake();
   document.querySelectorAll("nav.steps button").forEach(b=>{ if(b.dataset.step===state.step) b.setAttribute("aria-current","step"); else b.removeAttribute("aria-current"); });
+  document.getElementById("learnMore").innerHTML = viewLearnMore();
+  const lb=document.getElementById("btnLearn"); lb.setAttribute("aria-pressed", String(!!state.learn)); lb.textContent = "Learn mode: "+(state.learn?"On":"Off");
   renderCard();
 }
 function go(step){ importMsg=""; state.step=step; save(); render(); window.scrollTo({top:0, behavior:"smooth"}); }
@@ -1054,6 +1280,7 @@ view.addEventListener("change",e=>{
   else if(el.name==="departure") i.departure=el.value;
   else if(el.name==="admin") i.admin = el.value==="yes";
   else if(el.id==="lastDay") i.lastDay=el.value;
+  else if(el.dataset.reg){ i.regs[el.dataset.reg]=el.checked; }
   else if(el.dataset.dev && el.dataset.acc){ const dv=state.devices.find(x=>x.id===el.dataset.dev); if(dv){ dv.acc[el.dataset.acc]=el.checked; save(); } return; }
   else if(el.dataset.dev && el.tagName==="SELECT"){
     const dv=state.devices.find(x=>x.id===el.dataset.dev); if(!dv) return;
@@ -1134,6 +1361,7 @@ view.addEventListener("click",e=>{
     return;
   }
   const row=a.closest(".item"); if(!row) return;
+  if(row.dataset.paused && act!=="note") return; /* legal hold: only notes can change */
   const id=row.dataset.id; const s=Object.assign({},itemState(id));
   if(act==="toggle"){ if(s.status==="done"){ s.status="open"; s.at=null; } else { s.status="done"; s.at=Date.now(); } }
   else if(act==="skip"){ s.status = s.status==="na" ? "open" : "na"; s.at=null; }
@@ -1165,10 +1393,21 @@ const btnNew=document.getElementById("btnNew");
 function startNew(){
   if(!state.example && !confirmNew){ confirmNew=true; btnNew.textContent="Tap again to clear"; setTimeout(()=>{confirmNew=false; btnNew.textContent="Start new";},3000); return; }
   confirmNew=false; btnNew.textContent="Start new";
-  state=blank(); state.intake.lastDay=isoDate(new Date()); save(); render();
+  const learn=state.learn; state=blank(); state.learn=learn; state.intake.lastDay=isoDate(new Date()); save(); render();
 }
 btnNew.addEventListener("click",startNew);
-document.getElementById("btnExample").addEventListener("click",()=>{ state=example(); save(); render(); });
+document.getElementById("btnExample").addEventListener("click",()=>{ const learn=state.learn; state=example(); state.learn=learn; save(); render(); });
+/* Learn mode opens or closes every explanation, the glossary and the sources at once */
+document.getElementById("btnLearn").addEventListener("click",()=>{
+  state.learn=!state.learn; learnOpen.clear(); learnClosed.clear(); save();
+  const y=window.scrollY; render(); window.scrollTo(0,y);
+});
+/* remember explanations opened or closed one at a time ("toggle" does not bubble, so listen in the capture phase) */
+document.addEventListener("toggle",e=>{
+  const d=e.target; if(!d.dataset || !d.dataset.learn) return; const k=d.dataset.learn;
+  if(state.learn){ if(d.open) learnClosed.delete(k); else learnClosed.add(k); }
+  else { if(d.open) learnOpen.add(k); else learnOpen.delete(k); }
+}, true);
 
 render();
 })();
