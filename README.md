@@ -1,5 +1,7 @@
 # Click by Click Offboarding
 
+Close every account, collect every device, and keep a record when someone leaves your nonprofit.
+
 This is my capstone project for the Cyber Ready Clinic internship.
 
 When someone leaves a small nonprofit, their accounts usually stay open. Their email still works, shared passwords never get changed, and nobody really knows everything that person had access to. Most small nonprofits don't have an IT team, so this falls on whoever handles IT on the side.
