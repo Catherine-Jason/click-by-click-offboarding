@@ -140,9 +140,26 @@ select{font:inherit; color:var(--ink); background:var(--bg); border:1px solid va
 .devlist{display:flex; flex-direction:column; gap:8px}
 .devrow{display:grid; grid-template-columns:15em 1fr 1fr auto; grid-template-areas:"type model serial rm" "os assigned assigned ." "more more more more"; gap:8px; align-items:center; border:1px solid var(--line); border-radius:8px; padding:8px; background:var(--bg)}
 .devrow.noos{grid-template-areas:"type model serial rm" "assigned assigned assigned ." "more more more more"}
-.devrow > [data-field=type]{grid-area:type} .devrow > [data-field=model]{grid-area:model} .devrow > [data-field=serial]{grid-area:serial}
+.devrow > [data-field=type]{grid-area:type} .devrow > [data-field=model]{grid-area:model} .devrow > .snwrap{grid-area:serial}
 .devrow > [data-field=os]{grid-area:os} .devrow > [data-field=assignedTo]{grid-area:assigned} .devrow > [data-act=removeDevice]{grid-area:rm} .devrow > .devmore{grid-area:more}
 .devrow input,.devrow select,.devrow textarea{background:var(--surface)}
+/* serial number hint under the field, and the reusable help box */
+.snwrap{display:flex; flex-direction:column; gap:4px; min-width:0}
+/* the serial cell is taller now, so the row lines up at the top instead of floating the other fields */
+.devrow{align-items:start} .devrow > [data-act=removeDevice]{margin-top:10px}
+.snwrap small{font-size:12.5px; color:var(--muted)}
+.snwrap .snlink{align-self:flex-start}
+.snbox:empty{display:none} .snbox:not(:empty){margin-bottom:8px} .devlist > .snbox:not(:empty){margin-bottom:0}
+.helpbox{border:1px solid var(--line); border-left:3px solid var(--accent); border-radius:8px; padding:12px 14px; background:var(--surface); display:flex; flex-direction:column; gap:10px; font-size:14px}
+.helpbox h4{font-family:var(--f-display); font-size:14px; margin:0}
+.helpbox p{margin:0} .helpbox ol,.helpbox ul{margin:0; padding-left:1.4em} .helpbox li + li{margin-top:2px}
+.helpbox b{display:block; font-size:13px; margin-bottom:2px}
+.helpbox small{color:var(--muted); font-size:12.5px}
+.helplook{background:var(--accent-soft); border-radius:6px; padding:8px 10px} .helplook p + p{margin-top:4px}
+.helpcmd{display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:6px 0 4px}
+.helpcmd code{flex:1 1 16em; min-width:0; font-family:var(--f-mono); font-size:12.5px; background:var(--bg); border:1px solid var(--line); border-radius:6px; padding:8px 10px; overflow-wrap:anywhere}
+.helpfoot{color:var(--muted); font-size:13px}
+.helpbox a{color:var(--accent); text-underline-offset:2px}
 input[type=date]{color-scheme:dark}
 /* "More details" per device */
 .devmore summary{cursor:pointer; color:var(--accent); font-weight:600; font-size:13px; padding:2px 0; width:max-content}
@@ -243,7 +260,7 @@ footer{font-size:12.5px; color:var(--muted); display:flex; flex-direction:column
 
   <footer>
     <p><strong>Disclaimer:</strong> This tool is provided for educational purposes only. Its steps are aligned with, not compliant with, the NIST, CIS, HIPAA, PCI DSS and FERPA guidance it cites, and using it does not make your organization compliant. Laws vary by state and by the type of data you hold. Your answers stay in your browser and are never collected, stored or shared. It does not replace guidance from your organization's IT, HR or legal team.</p>
-    <p>&copy; 2026 Catherine Jason &middot; Click by Click Offboarding v1.6 &middot; <a href="https://www.catherinejason.com" target="_blank" rel="noopener" style="color: var(--accent);">catherinejason.com</a></p>
+    <p>&copy; 2026 Catherine Jason &middot; Click by Click Offboarding v1.7 &middot; <a href="https://www.catherinejason.com" target="_blank" rel="noopener" style="color: var(--accent);">catherinejason.com</a></p>
   </footer>
 </div>
 <textarea id="copyText" aria-hidden="true" tabindex="-1"></textarea>
@@ -319,6 +336,119 @@ function guessOS(model){
   if(/surface|thinkpad|latitude|elitebook|probook|optiplex|inspiron|ideapad/.test(s)) return "windows";
   return "other";
 }
+
+/* ---------- reusable help box ----------
+   One kind of help panel for every "where do I find this?" spot, so later help reuses it instead of making a new kind.
+   helpBox({id, title, look:{title, lines}, steps, cmd:{title, lead, text, note}, sections:[{title, items}], links:[{label, url}], missing:{title, items}, foot})
+   Only id and title are needed. A cmd is only ever a command that reads information, never one that changes anything. */
+function helpBox(o){
+  const list=(tag,items)=>'<'+tag+'>'+items.map(x=>'<li>'+esc(x)+'</li>').join("")+'</'+tag+'>';
+  const sec=(title,body,cls)=>'<div class="helpsec'+(cls? " "+cls : "")+'"><b>'+esc(title)+'</b>'+body+'</div>';
+  let h='<div class="helpbox" id="'+o.id+'" role="region" aria-labelledby="'+o.id+'_t"><h4 id="'+o.id+'_t">'+esc(o.title)+'</h4>';
+  if(o.look) h+='<div class="helplook"><b>'+esc(o.look.title||"What it looks like")+'</b>'+o.look.lines.map(l=>'<p>'+esc(l)+'</p>').join("")+'</div>';
+  if(o.steps && o.steps.length) h+=list("ol",o.steps);
+  if(o.cmd) h+=sec(o.cmd.title||"Another way", '<p>'+esc(o.cmd.lead)+'</p><div class="helpcmd"><code>'+esc(o.cmd.text)+'</code><button class="btn" type="button" data-helpcopy>Copy</button></div>'+(o.cmd.note? '<small>'+esc(o.cmd.note)+'</small>' : ''));
+  (o.sections||[]).forEach(s=>{ h+=sec(s.title, list("ul",s.items)); });
+  if(o.links && o.links.length) h+=sec("From the maker", '<ul>'+o.links.map(l=>'<li><a href="'+esc(l.url)+'" target="_blank" rel="noopener noreferrer">'+esc(l.label)+'</a></li>').join("")+'</ul>');
+  if(o.missing) h+=sec(o.missing.title||"Don't have this?", list("ul",o.missing.items), "helpmiss");
+  if(o.foot) h+='<p class="helpfoot">'+esc(o.foot)+'</p>';
+  return h+'</div>';
+}
+/* Copy puts only the command on the clipboard. If the clipboard is blocked, it selects the command so Ctrl+C works. */
+function helpCopy(btn){
+  const code=btn.parentNode.querySelector("code"); if(!code) return;
+  const show=t=>{ btn.textContent=t; clearTimeout(btn._t); btn._t=setTimeout(()=>{ btn.textContent="Copy"; },2000); };
+  const pick=()=>{ const r=document.createRange(); r.selectNodeContents(code); const s=window.getSelection(); s.removeAllRanges(); s.addRange(r); show("Press Ctrl+C"); };
+  try{ navigator.clipboard.writeText(code.textContent).then(()=>show("Copied"), pick); }catch(err){ pick(); }
+}
+
+/* ---------- serial number help ----------
+   The brand is read from the Make and model text and the steps follow the device's OS field, so there is nothing new to pick.
+   Formats checked against each maker's support site in November 2026. */
+const SN_BRANDS=[
+  {id:"dell", re:/\bdell\b|latitude|inspiron|optiplex|vostro|\bxps\b/, min:7, max:7, ex:"7HQK2X3", app:"Dell SupportAssist",
+    hint:"Dell calls it a Service Tag: 7 letters and numbers, on the sticker on the bottom of a laptop or the back of a desktop.",
+    link:["Dell: find your Service Tag","https://www.dell.com/support/contents/category/product-support/self-support-knowledgebase/locate-service-tag/"]},
+  {id:"hp", re:/\bhp\b|hewlett|probook|elitebook|pavilion|\benvy\b|\bomen\b/, min:10, max:10, ex:"5CG1234ABC", app:"HP Support Assistant",
+    hint:"HP serial numbers are usually 10 letters and numbers next to S/N. Not the P/N product number."},
+  {id:"lenovo", re:/lenovo|thinkpad|ideapad|thinkcentre|\byoga\b/, min:8, max:8, ex:"PF2ABCDE", app:"Lenovo Vantage",
+    hint:"Lenovo serial numbers are usually 8 letters and numbers next to S/N.",
+    link:["Lenovo: how to find serial numbers","https://support.lenovo.com/us/en/solutions/ht510152-how-to-find-serial-numbers-pc"]},
+  {id:"surface", re:/surface/, min:12, max:12, ex:"028765443753", app:"the Surface app",
+    hint:"Surface serial numbers are 12 numbers, under the kickstand or on the bottom.",
+    link:["Microsoft: find the serial number for your Surface","https://support.microsoft.com/help/4036293"]},
+  {id:"apple", re:/\bapple\b|macbook|imac|mac ?mini|mac studio|iphone|ipad/, min:10, max:12, ex:"FVFXC2MHQ6L4",
+    hint:"Apple serial numbers are usually 10 to 12 letters and numbers.",
+    extra:"Apple never uses the letters O or I in a serial number, so read those as 0 and 1.",
+    link:["Apple: find the serial number of your Apple product","https://support.apple.com/102858"]}
+];
+const SN_OTHER={id:"other", min:7, max:14, ex:"ABC1234567", hint:"Most serial numbers are 7 to 14 letters and numbers with no spaces."};
+const SN_ON={windows:"Windows", macos:"a Mac", ios:"an iPhone or iPad", android:"Android", chromeos:"a Chromebook", other:"this device"};
+const SN_STEPS={
+  windows:["Look for the sticker on the bottom of a laptop, or on the back or side of a desktop.","No sticker? Open the maker's support app: APP. It shows the serial number."],
+  macos:["Click the Apple menu in the top left corner of the screen.","Choose About This Mac.","The serial number is in the window that opens."],
+  ios:["Open Settings.","Tap General, then About.","Look for Serial Number."],
+  android:["Open Settings.","Tap About phone.","Look for Serial number. On some phones it is under Status or Model."],
+  chromeos:["Look for the sticker on the bottom. The number is next to S/N.","No sticker? On the sign in screen, press Alt and V together. The serial number shows after SN."],
+  other:["Look for a label on the device.","Check under the battery cover, if it has one.","Check the box it came in."]
+};
+const SN_CMD={
+  windows:{lead:"Click Start, type PowerShell, and open Windows PowerShell. Paste this and press Enter.", text:"Get-CimInstance Win32_BIOS | Select-Object SerialNumber"},
+  chromeos:{lead:"Paste this in the Chrome address bar and press Enter. Then press Ctrl and F and search for serial.", text:"chrome://system"}
+};
+const snOpen=new Set();
+/* the OS field's value; "" means "Guess from the model", and null means the device has no OS field */
+function snOS(os, model){ return SN_STEPS[os]? os : os===""? guessOS(model) : "other"; }
+function snBrand(model, os){
+  const b=SN_BRANDS.find(x=>x.re.test((model||"").toLowerCase()));
+  return b || (os==="macos"||os==="ios"? SN_BRANDS.find(x=>x.id==="apple") : SN_OTHER);
+}
+function snHelpBox(key, b, os){
+  const look=[b.hint].concat(b.extra? [b.extra] : [], os==="ios"||os==="android"? ["Phones also have an IMEI: 15 numbers. Dial *#06# to show it. Either one works."] : []);
+  const c=SN_CMD[os];
+  return helpBox({id:"snb_"+key+"_box", title:"How to find the serial number on "+SN_ON[os], look:{lines:look},
+    steps:SN_STEPS[os].map(s=>s.replace("APP", b.app||"Dell SupportAssist, HP Support Assistant, Lenovo Vantage or the Surface app")),
+    cmd: c? {lead:c.lead, text:c.text, note:"This only reads your serial number. It does not change anything."} : null,
+    sections:[{title:"Tips for typing it in", items:["Leave out spaces and dashes.","Watch for look alikes: O and 0, I and 1, S and 5, B and 8.","Do not use the model number or the product number (P/N)."]}],
+    links: b.link? [{label:b.link[0], url:b.link[1]}] : [],
+    missing:{title:"Still can't find it?", items:["Check the box it came in or the receipt.","Check your device management tool, like Intune, Jamf or Google Admin.","No number at all? Add your own asset tag sticker and type that in."]},
+    foot:"Serial number comes from the maker and never changes. Asset tag is a label your organization adds."});
+}
+/* the field, its hint line and the "Where do I find this?" link.
+   o: {key, attrs (the input's own attributes), value, model, os, modelSel, osSel (where to read them while typing), ph (placeholder start)} */
+function snField(o){
+  const os=snOS(o.os, o.model), b=snBrand(o.model, os);
+  return '<div class="snwrap" data-sn="'+o.key+'" data-snmodel="'+esc(o.modelSel)+'" data-snos="'+esc(o.osSel||"")+'" data-snph="'+esc(o.ph)+'">'+
+    '<input type="text"'+o.attrs+' data-sninput="'+o.key+'" value="'+esc(o.value)+'" placeholder="'+esc(o.ph+b.ex)+'" aria-describedby="snh_'+o.key+'">'+
+    '<small class="snhint" id="snh_'+o.key+'">'+esc(b.hint)+'</small>'+
+    '<button class="linkbtn snlink" type="button" data-sntoggle="'+o.key+'" aria-expanded="'+snOpen.has(o.key)+'" aria-controls="snb_'+o.key+'">Where do I find this?</button></div>';
+}
+/* the help box goes below the device row, so it can use the full width */
+function snBox(key, model, os){ const o=snOS(os, model); return '<div class="snbox" id="snb_'+key+'">'+(snOpen.has(key)? snHelpBox(key, snBrand(model,o), o) : '')+'</div>'; }
+/* there is no live check on what is typed: the field also holds asset tags, which every organization makes up its own way */
+function snSync(w){
+  const m=w.dataset.snmodel? document.querySelector(w.dataset.snmodel) : null, s=w.dataset.snos? document.querySelector(w.dataset.snos) : null;
+  const model=m? m.value : "", os=snOS(s? s.value : null, model), b=snBrand(model, os), key=w.dataset.sn;
+  const inp=w.querySelector("[data-sninput]"), box=document.getElementById("snb_"+key);
+  w.querySelector(".snhint").textContent=b.hint;
+  inp.placeholder=w.dataset.snph+b.ex;
+  const sig=b.id+"|"+os;
+  if(box && snOpen.has(key) && box.dataset.sig!==sig){ box.innerHTML=snHelpBox(key, b, os); box.dataset.sig=sig; }
+}
+/* the hint and the open help box follow the Make and model text and the OS field */
+function snEvent(el){
+  if(!el || !el.isConnected || !el.matches) return;
+  document.querySelectorAll("[data-sn]").forEach(w=>{ if((w.dataset.snmodel && el.matches(w.dataset.snmodel)) || (w.dataset.snos && el.matches(w.dataset.snos))) snSync(w); });
+}
+document.addEventListener("input", e=>snEvent(e.target));
+document.addEventListener("change", e=>snEvent(e.target));
+document.addEventListener("click", e=>{
+  const t=e.target.closest && e.target.closest("[data-sntoggle],[data-helpcopy]"); if(!t || !t.isConnected) return;
+  if(t.hasAttribute("data-helpcopy")){ helpCopy(t); return; }
+  const key=t.dataset.sntoggle, w=t.closest("[data-sn]"), box=document.getElementById("snb_"+key); if(!box || !w) return;
+  if(snOpen.has(key)){ snOpen.delete(key); box.innerHTML=""; box.dataset.sig=""; t.setAttribute("aria-expanded","false"); }
+  else { snOpen.add(key); box.dataset.sig=""; t.setAttribute("aria-expanded","true"); snSync(w); }
+});
 function parseEnc(s){
   s=(s||"").toLowerCase();
   if(!s.trim() || /not sure|unsure|unknown|\?/.test(s)) return "unsure";
@@ -1258,14 +1388,15 @@ function viewDeviceInputs(){
     '<div class="devrow'+(hasOS(d)?"":" noos")+'" data-dev="'+d.id+'">'+
       '<select data-dev="'+d.id+'" data-field="type" aria-label="Device type">'+DEVICE_TYPES.map(t=>'<option value="'+t.id+'"'+(d.type===t.id?" selected":"")+'>'+esc(t.label)+'</option>').join("")+'</select>'+
       '<input type="text" data-dev="'+d.id+'" data-field="model" placeholder="Make and model" aria-label="Make and model" value="'+esc(d.model)+'">'+
-      '<input type="text" data-dev="'+d.id+'" data-field="serial" placeholder="Serial or asset tag" aria-label="Serial or asset tag" value="'+esc(d.serial)+'">'+
+      snField({key:"d"+d.id, attrs:' data-dev="'+d.id+'" data-field="serial" aria-label="Serial or asset tag"', value:d.serial, model:d.model, os:hasOS(d)? d.os : null,
+        modelSel:'[data-dev="'+d.id+'"][data-field="model"]', osSel:hasOS(d)? 'select[data-dev="'+d.id+'"][data-field="os"]' : "", ph:"Serial or asset tag, like "})+
       '<button class="linkbtn" type="button" data-act="removeDevice" data-dev="'+d.id+'">Remove</button>'+
       (hasOS(d)?
         '<select data-dev="'+d.id+'" data-field="os" aria-label="Operating system">'+DEVICE_OS.map(o=>'<option value="'+o.id+'"'+(d.os===o.id?" selected":"")+'>OS: '+esc(o.label)+'</option>').join("")+'</select>'
       : '')+
       '<input type="text" data-dev="'+d.id+'" data-field="assignedTo" placeholder="Assigned to" aria-label="Assigned to" value="'+esc(d.assignedTo)+'">'+
       devMore(d)+
-    '</div>').join("");
+    '</div>'+snBox("d"+d.id, d.model, hasOS(d)? d.os : null)).join("");
   return '<div class="field"><span class="legend">Device inventory</span>'+
     '<small>List every organization device they have. You will check each one back in on the checklist.</small>'+
     '<div class="devlist">'+(rows || '<div class="devempty">No devices listed yet.</div>')+'</div>'+
@@ -1490,6 +1621,7 @@ view.addEventListener("input",e=>{
   else if(el.dataset.dev && el.dataset.field && (el.tagName==="INPUT"||el.tagName==="TEXTAREA")){
     const dv=state.devices.find(x=>x.id===el.dataset.dev); if(!dv) return;
     let v=el.value; if(el.dataset.field==="due" && v===i.lastDay) v=""; /* back to following the last day */
+    if(el.dataset.field==="serial") v=v.trim(); /* spaces at the start or end of a serial or asset tag are dropped quietly when saved */
     dv[el.dataset.field]=v; save();
     /* dates change the warning and the dates line, so refresh those in place (redrawing would interrupt typing) */
     if(el.type==="date") refreshDevInfo(dv);
