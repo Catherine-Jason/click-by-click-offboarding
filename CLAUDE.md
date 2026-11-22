@@ -12,6 +12,7 @@ These stay the same in both repos:
 - Device fields (types, OS, encryption, More details fields)
 - CSV import and export (column matching, template, export columns)
 - Learn mode, glossary and sources
+- Records for HR and audits (Access v2.8, Offboarding v1.8): the optional Organization name near the top of the intake (null means it follows the last name typed), the record number (OFF or ON, the date and a 4 character code, kept with the person), Prepared for and the record number at the top of the record, the sign off lines, page numbers, credit and disclaimer when printing, and the same lines at the end of the text file and copied record. Each app uses its own name and address in the credit.
 
 Any change to those goes into both repos in the same session, as a separate commit in each repo.
 

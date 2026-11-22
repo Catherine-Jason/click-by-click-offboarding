@@ -218,11 +218,22 @@ footer{font-size:12.5px; color:var(--muted); display:flex; flex-direction:column
   .card{grid-template-columns:auto 1fr}
   .card .status{grid-column:1 / -1; justify-self:start}
 }
+/* v1.8: records for HR and audits. Sign off lines, credit and disclaimer print only; page numbers sit in the bottom margin of every printed page */
+.rectop{display:flex; flex-wrap:wrap; gap:2px 20px; font-size:13.5px; color:var(--muted)} .rectop p{margin:0} .rectop b{color:var(--ink)}
+@media screen{ .printonly{display:none!important} }
+@page{ margin:0.6in 0.6in 0.75in; @bottom-center{ content:"Page " counter(page) " of " counter(pages); font-family:"IBM Plex Sans", Arial, sans-serif; font-size:9pt; color:#555 } }
 @media (prefers-reduced-motion:reduce){ *{transition:none!important} }
 @media print{
-  body{background:#fff; color:#000}
+  :root{--bg:#fff; --surface:#fff; --ink:#000; --muted:#444; --line:#bbb; --done:#0a5c7a; --done-soft:#fff; --warn:#8a5300; --warn-soft:#fff; --skip:#555; --accent:#0a5c7a; --accent-soft:#fff}
+  body{background:#fff; background-image:none; color:#000}
   .card,nav.steps,header .actions,.rowbtns,footer,.banner,#learnMore{display:none!important}
   .panel{border:0; padding:0}
+  :root{color-scheme:light; background:#fff} /* white page edges in PDFs, where backgrounds print */
+  .rectop{color:#000; font-size:11pt}
+  .signoff{margin-top:28px; display:grid; gap:26px; break-inside:avoid}
+  .sl{display:grid; grid-template-columns:auto minmax(0,1fr) auto 10em; gap:8px; align-items:end; font-size:11pt}
+  .sl .line{border-bottom:1px solid #000; min-height:1.5em; padding:0 4px}
+  .credit{margin-top:22px; font-size:8.5pt; color:#555; break-inside:avoid} .credit p{margin:2px 0}
 }
 </style>
 </head>
@@ -260,7 +271,7 @@ footer{font-size:12.5px; color:var(--muted); display:flex; flex-direction:column
 
   <footer>
     <p><strong>Disclaimer:</strong> This tool is provided for educational purposes only. Its steps are aligned with, not compliant with, the NIST, CIS, HIPAA, PCI DSS and FERPA guidance it cites, and using it does not make your organization compliant. Laws vary by state and by the type of data you hold. Your answers stay in your browser and are never collected, stored or shared. It does not replace guidance from your organization's IT, HR or legal team.</p>
-    <p>&copy; 2026 Catherine Jason &middot; Click by Click Offboarding v1.7 &middot; <a href="https://www.catherinejason.com" target="_blank" rel="noopener" style="color: var(--accent);">catherinejason.com</a></p>
+    <p>&copy; 2026 Catherine Jason &middot; Click by Click Offboarding v1.8 &middot; <a href="https://www.catherinejason.com" target="_blank" rel="noopener" style="color: var(--accent);">catherinejason.com</a></p>
   </footer>
 </div>
 <textarea id="copyText" aria-hidden="true" tabindex="-1"></textarea>
@@ -994,7 +1005,7 @@ function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;",
 
 function nextFriday(){const d=new Date(); const add=(5-d.getDay()+7)%7||7; return isoDate(addDays(d,add))}
 function blankRegs(){ return {hipaa:false, pci:false, ferpa:false, hold:false}; }
-function blank(){ return {step:"intake", example:false, learn:false, intake:{role:"", type:"staff", departure:"planned", lastDay:"", doneBy:"", admin:false, systems:[], other:"", regs:blankRegs()}, items:{}, devices:[]} }
+function blank(){ return {step:"intake", example:false, learn:false, intake:{role:"", type:"staff", departure:"planned", lastDay:"", doneBy:"", admin:false, systems:[], other:"", regs:blankRegs(), org:null, recNo:""}, items:{}, devices:[], lastOrg:""} }
 function example(){
   const s = blank(); s.example = true;
   s.intake = {role:"Volunteer events lead", type:"volunteer", departure:"planned", lastDay:nextFriday(), doneBy:"Office manager", admin:false,
@@ -1040,6 +1051,9 @@ function cleanDetails(d){
 function load(){ try{ const raw=localStorage.getItem(KEY); if(raw){ const s=JSON.parse(raw); if(s && s.intake){ if(!s.items||typeof s.items!=="object") s.items={}; if(!Array.isArray(s.intake.systems)) s.intake.systems=[]; s.devices=cleanDevices(s.devices);
   /* v1.3 and older saves have no regulated data answers or Learn mode */
   const r=blankRegs(), old=s.intake.regs; if(old && typeof old==="object") Object.keys(r).forEach(k=>{ r[k] = old[k]===true; }); s.intake.regs=r; s.learn = s.learn===true;
+  /* v1.7 and older saves have no organization name (null means use the last one typed) or record number */
+  s.intake.org = typeof s.intake.org==="string"? s.intake.org.slice(0,200) : null; s.lastOrg = typeof s.lastOrg==="string"? s.lastOrg.slice(0,200) : "";
+  s.intake.recNo = typeof s.intake.recNo==="string" && /^(ON|OFF)-\d{8}-[2-9A-HJ-NP-Z]{4}$/.test(s.intake.recNo)? s.intake.recNo : "";
   return s; } } }catch(e){} return null }
 function save(){ try{ localStorage.setItem(KEY, JSON.stringify(state)) }catch(e){} }
 
@@ -1352,6 +1366,7 @@ function viewIntake(){
   const n = activeTasks().length;
   return '<section class="panel">'+exampleBanner()+
   '<div><h2>Who is leaving?</h2><p class="muted">Answer a few questions and the checklist builds itself with only the steps that apply.</p></div>'+
+  orgField("off")+
   '<div class="grid2">'+
     '<div class="field"><label for="role">Role or name</label><input type="text" id="role" placeholder="Example: Program assistant" value="'+esc(i.role)+'"><small>A role is enough if you would rather not save a name here.</small></div>'+
     '<div class="field"><label for="doneBy">Completed by</label><input type="text" id="doneBy" placeholder="Who is doing the offboarding" value="'+esc(i.doneBy)+'"></div>'+
@@ -1538,8 +1553,51 @@ function recordText(){
       });
     });
   }
-  return lines.join("\n");
+  return lines.concat(recTextEnd("off")).join("\n");
 }
+
+/* ================= v1.8: records for HR and audits (mirrored in Click by Click Access, each with its own name and address) ================= */
+/* The organization name is optional and kept on each record. A record with no name of its own yet (null) uses the last name typed anywhere.
+   The record number is made the first time it is needed and kept with the person, so saving the same person again keeps it. */
+const REC_APP = "Click by Click Offboarding", REC_SITE = "catherine-jason.github.io/click-by-click-offboarding", REC_VERSION = "1.8";
+const REC_DISCLAIMER = "This record shows the steps your organization marked as done. It is not a certification of compliance and does not replace advice from your IT, HR or legal team.";
+const REC_CODE = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ", REC_NO_RE = /^(ON|OFF)-\d{8}-[2-9A-HJ-NP-Z]{4}$/;
+function recIntake(flow){ return state.intake; }
+function orgRaw(flow){ const v = flow==="inv"? state.invOrg : recIntake(flow).org; return typeof v==="string"? v : (typeof state.lastOrg==="string"? state.lastOrg : ""); }
+function orgOf(flow){ return orgRaw(flow).replace(/\s+/g," ").trim(); }
+function setOrg(flow, v){ v=String(v).slice(0,200); if(flow==="inv") state.invOrg=v; else recIntake(flow).org=v; state.lastOrg=v; save(); }
+function makeRecNo(flow){
+  const r=new Uint8Array(4); crypto.getRandomValues(r);
+  return (flow==="on"? "ON" : "OFF")+"-"+todayISO().replace(/-/g,"")+"-"+Array.from(r, b=>REC_CODE[b % REC_CODE.length]).join("");
+}
+function recNo(flow){ const i=recIntake(flow); if(!REC_NO_RE.test(i.recNo||"")){ i.recNo=makeRecNo(flow); save(); } return i.recNo; }
+function recCredit(dateISO){ return "Created with "+REC_APP+" v"+REC_VERSION+" · "+REC_SITE+" · "+fmtShort(dateISO||todayISO()); }
+function orgField(flow){
+  const id = flow==="on"? "onb_org" : flow==="inv"? "inv_org" : "org";
+  return '<div class="grid2"><div class="field"><label for="'+id+'">Organization name</label><input type="text" id="'+id+'" maxlength="200" autocomplete="organization" placeholder="Optional" value="'+esc(orgRaw(flow))+'">'+
+    '<small>Optional. Printed at the top of '+(flow==="inv"? "inventory files" : "the record")+' as Prepared for, and filled in for you next time.</small></div></div>';
+}
+/* top of the record: who it is for and its number */
+function recTop(flow){
+  const o=orgOf(flow);
+  return '<div class="rectop">'+(o? '<p class="prepared">Prepared for <b>'+esc(o)+'</b></p>' : '')+'<p class="recno">Record number <b class="mono">'+esc(recNo(flow))+'</b></p></div>';
+}
+/* end of the printed record: sign off lines, then the credit and disclaimer */
+function recBottom(flow){
+  const by=(recIntake(flow).doneBy||"").replace(/\s+/g," ").trim();
+  const line=(label, val)=>'<div class="sl"><span>'+label+':</span><span class="line">'+esc(val)+'</span><span>Date:</span><span class="line"></span></div>';
+  return '<div class="signoff printonly">'+line("Completed by", by)+line("Reviewed by", "")+'</div>'+
+    '<div class="credit printonly"><p class="credline">'+esc(recCredit())+'</p><p>'+esc(REC_DISCLAIMER)+'</p></div>';
+}
+/* end of the text file and copied record */
+function recTextEnd(flow){
+  const o=orgOf(flow), out=[""];
+  if(o) out.push("Prepared for "+o);
+  out.push("Record number: "+recNo(flow), "", recCredit(), REC_DISCLAIMER);
+  return out;
+}
+/* the date in the credit is the day it prints, even if the page was left open overnight */
+window.addEventListener("beforeprint", ()=>{ document.querySelectorAll(".credline").forEach(p=>{ p.textContent=recCredit(); }); });
 
 const TOP = (function(){ try{ return window.self === window.top }catch(e){ return false } })();
 
@@ -1575,7 +1633,7 @@ function viewRecord(){
   if(c.open) openMsg.push(c.open+' step'+(c.open===1?"":"s"));
   if(d.out) openMsg.push(d.out+' device'+(d.out===1?"":"s"));
   return '<section class="panel">'+exampleBanner()+
-  '<div><h2>Offboarding record</h2><p class="muted">Proof that access was removed. Keep a copy with your HR or IT files.</p></div>'+
+  recTop("off")+'<div><h2>Offboarding record</h2><p class="muted">Proof that access was removed. Keep a copy with your HR or IT files.</p></div>'+
   (openMsg.length? '<div class="banner warn"><span><b>'+openMsg.join(" and ")+' still open.</b> Finish them or mark them as not needed before you save this record.</span><button class="btn" type="button" data-go="list">Go to checklist</button></div>' : '<div class="banner"><span><b>All steps are closed.</b> Access for this person has been removed.</span></div>')+
   (d.missing? '<div class="banner warn"><span><b>'+d.missing+' device'+(d.missing===1?" is":"s are")+' missing.</b> Make sure it is locked or wiped, and follow your policy for lost equipment.</span></div>' : "")+
   (hasReg(i,"hold")? holdBanner() : "")+
@@ -1595,6 +1653,7 @@ function viewRecord(){
     '<h3>Device details</h3><div class="devdetails">'+cards+'</div>'+
     '<p class="note">'+NOTE_DISPOSAL+'</p>'+((d.out||d.missing)? '<p class="note">'+NOTE_EQUIPMENT+'</p>' : '') : "")+
   '<p class="muted aligned-note">Steps are aligned with the frameworks shown, not a certification of compliance. Laws vary by state and by the type of data you hold.</p>'+
+  recBottom("off")+
   '<div class="rowbtns"><button class="btn primary" type="button" data-act="copy" id="btnCopy">Copy record</button>'+
   (TOP? '<button class="btn" type="button" data-act="download">Download as text file</button>'+(state.devices.length?'<button class="btn" type="button" data-act="exportCSV">Download devices for Excel (.csv)</button><button class="btn" type="button" data-act="exportXLSX">Download devices for Excel (.xlsx)</button>':'')+'<button class="btn" type="button" data-act="print">Print</button>' : '')+
   '</div></section>';
@@ -1616,6 +1675,7 @@ document.querySelector("nav.steps").addEventListener("click",e=>{ const b=e.targ
 const view = document.getElementById("view");
 view.addEventListener("input",e=>{
   const el=e.target; const i=state.intake;
+  if(el.id==="org"){ setOrg("off", el.value); return; }
   if(el.id==="role"||el.id==="doneBy"||el.id==="lastDay"||el.id==="other"){ i[el.id]=el.value; }
   else if(el.dataset.note){ const s=Object.assign({},itemState(el.dataset.note)); s.note=el.value; state.items[el.dataset.note]=s; save(); return; }
   else if(el.dataset.dev && el.dataset.field && (el.tagName==="INPUT"||el.tagName==="TEXTAREA")){
@@ -1748,10 +1808,10 @@ const btnNew=document.getElementById("btnNew");
 function startNew(){
   if(!state.example && !confirmNew){ confirmNew=true; btnNew.textContent="Tap again to clear"; setTimeout(()=>{confirmNew=false; btnNew.textContent="Start new";},3000); return; }
   confirmNew=false; btnNew.textContent="Start new";
-  const learn=state.learn; state=blank(); state.learn=learn; state.intake.lastDay=isoDate(new Date()); save(); render();
+  const learn=state.learn, lastOrg=state.lastOrg; state=blank(); state.learn=learn; state.lastOrg=lastOrg; state.intake.lastDay=isoDate(new Date()); save(); render();
 }
 btnNew.addEventListener("click",startNew);
-document.getElementById("btnExample").addEventListener("click",()=>{ const learn=state.learn; state=example(); state.learn=learn; save(); render(); });
+document.getElementById("btnExample").addEventListener("click",()=>{ const learn=state.learn, lastOrg=state.lastOrg; state=example(); state.learn=learn; state.lastOrg=lastOrg; save(); render(); });
 /* Learn mode opens or closes every explanation, the glossary and the sources at once */
 document.getElementById("btnLearn").addEventListener("click",()=>{
   state.learn=!state.learn; learnOpen.clear(); learnClosed.clear(); save();
