@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-P2r7ng34HQezY8DcqzvkEIxFxI7pYQGgL1gwYvgOvhA='; style-src 'sha256-0/Do2Q5bosJH11ag1+Hmocw5GlsJxy6f5V5kLUK+Na4='; img-src 'self' data:; font-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-LwIkLW3lZ6pkJaCHomMdsBTmt82Yj4sRCbT24hGfYZA='; style-src 'sha256-DJYN5y0EspuSOgucZz9INQ4HNWZtYIo5UMvc+h7gOUI='; img-src 'self' data:; font-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#03060b">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -236,8 +236,14 @@ dialog#modal{border:1px solid var(--line); border-radius:14px; background:var(--
 dialog#modal::backdrop{background:rgba(0,0,0,.6)}
 .modalbox{padding:20px; display:flex; flex-direction:column; gap:12px}
 .modalbox h2{margin:0} .modalbox p{margin:0} #modalMsg{color:var(--done)} #modalMsg:empty{display:none}
+/* v1.10: Try a demo, and the demo's banner and notes */
+.demolink{display:inline-block; margin-top:6px; font-size:13.5px; font-weight:600; color:var(--accent)}
+.demobanner{margin-bottom:14px; border:1px solid var(--accent)} .demobanner a{color:var(--accent); font-weight:600}
+.demonote{display:block; margin-top:4px}
+body.demo button:disabled{opacity:.45; cursor:not-allowed}
 @media (prefers-reduced-motion:reduce){ *{transition:none!important} }
 @media print{
+  .demolink,.demobanner,.demonote{display:none!important}
   dialog{display:none!important}
   :root{--bg:#fff; --surface:#fff; --ink:#000; --muted:#444; --line:#bbb; --done:#0a5c7a; --done-soft:#fff; --warn:#8a5300; --warn-soft:#fff; --skip:#555; --accent:#0a5c7a; --accent-soft:#fff}
   body{background:#fff; background-image:none; color:#000}
@@ -259,10 +265,10 @@ dialog#modal::backdrop{background:rgba(0,0,0,.6)}
     <div>
       <h1>Click by Click Offboarding</h1>
       <p class="sub">Close every account, collect every device, and keep a record when someone leaves your nonprofit.</p>
+      <a class="demolink" id="lnkDemo" href="demo.html" target="_blank" rel="noopener">Try a demo</a>
     </div>
     <div class="actions">
       <button class="btn" id="btnLearn" type="button" aria-pressed="false">Learn mode: Off</button>
-      <button class="btn" id="btnExample" type="button">Load example</button>
       <button class="btn warn" id="btnNew" type="button">Start new</button>
       <button class="btn" id="btnClear" type="button">Clear this computer</button>
     </div>
@@ -287,7 +293,7 @@ dialog#modal::backdrop{background:rgba(0,0,0,.6)}
 
   <footer>
     <p><strong>Disclaimer:</strong> This tool is provided for educational purposes only. Its steps are aligned with, not compliant with, the NIST, CIS, HIPAA, PCI DSS and FERPA guidance it cites, and using it does not make your organization compliant. Laws vary by state and by the type of data you hold. Your answers stay in your browser and are never collected, stored or shared. It does not replace guidance from your organization's IT, HR or legal team.</p>
-    <p>&copy; 2026 Catherine Jason &middot; Click by Click Offboarding v1.9 &middot; <a class="footlink" href="https://www.catherinejason.com" target="_blank" rel="noopener">catherinejason.com</a></p>
+    <p>&copy; 2026 Catherine Jason &middot; Click by Click Offboarding v1.10 &middot; <a class="footlink" href="https://www.catherinejason.com" target="_blank" rel="noopener">catherinejason.com</a></p>
     <p>The official address is <a class="footlink" href="https://catherine-jason.github.io/click-by-click-offboarding/">catherine-jason.github.io/click-by-click-offboarding</a>.</p>
   </footer>
 </div>
@@ -295,7 +301,9 @@ dialog#modal::backdrop{background:rgba(0,0,0,.6)}
 
 <script>
 (function(){
-const KEY = "cbc-offboarding-v1";
+/* v1.10: demo.html shows this same app with ?demo in the address. The demo uses its own key, reads nothing and saves nothing, so it can never touch anyone's work */
+const DEMO = new URLSearchParams(location.search).has("demo");
+const KEY = DEMO? "cbc-offboarding-demo" : "cbc-offboarding-v1";
 const CHECK = '<svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 8.5l3.2 3L13 4.5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
 const SYSTEMS = [
@@ -1065,18 +1073,17 @@ function cleanDetails(d){
   });
   return o;
 }
-function load(){ try{ const raw=localStorage.getItem(KEY); if(raw){ const s=JSON.parse(raw); if(s && s.intake){ if(!s.items||typeof s.items!=="object") s.items={}; if(!Array.isArray(s.intake.systems)) s.intake.systems=[]; s.devices=cleanDevices(s.devices);
+function load(){ if(DEMO) return null; /* the demo reads nothing */ try{ const raw=localStorage.getItem(KEY); if(raw){ const s=JSON.parse(raw); if(s && s.intake){ if(!s.items||typeof s.items!=="object") s.items={}; if(!Array.isArray(s.intake.systems)) s.intake.systems=[]; s.devices=cleanDevices(s.devices);
   /* v1.3 and older saves have no regulated data answers or Learn mode */
   const r=blankRegs(), old=s.intake.regs; if(old && typeof old==="object") Object.keys(r).forEach(k=>{ r[k] = old[k]===true; }); s.intake.regs=r; s.learn = s.learn===true;
   /* v1.7 and older saves have no organization name (null means use the last one typed) or record number */
   s.intake.org = typeof s.intake.org==="string"? s.intake.org.slice(0,200) : null; s.lastOrg = typeof s.lastOrg==="string"? s.lastOrg.slice(0,200) : "";
   s.intake.recNo = typeof s.intake.recNo==="string" && /^(ON|OFF)-\d{8}-[2-9A-HJ-NP-Z]{4}$/.test(s.intake.recNo)? s.intake.recNo : "";
   return s; } } }catch(e){} return null }
-function save(){ if(clearing) return; try{ localStorage.setItem(KEY, JSON.stringify(state)) }catch(e){} }
+function save(){ if(DEMO || clearing) return; try{ localStorage.setItem(KEY, JSON.stringify(state)) }catch(e){} }
 
-/* after Clear this computer the app opens empty, not on the example (only when nothing is saved, so it can never hide work) */
-let state = load() || (location.hash==="#cleared"? blank() : example());
-if(location.hash==="#cleared"){ try{ history.replaceState(null, "", location.pathname+location.search); }catch(e){} }
+/* first visit: empty (the demo fills in its sample data just before the first draw) */
+let state = load() || blank();
 let confirmNew = false;
 let importMsg = "";
 const openMore = new Set(); /* devices whose "More details" is open, kept across redraws */
@@ -1375,15 +1382,12 @@ function renderCard(){
 }
 
 /* ---------- views ---------- */
-function exampleBanner(){
-  return state.example ? '<div class="banner"><span><b>Example loaded.</b> This is a sample person so you can see how it works.</span><button class="btn" type="button" data-act="new">Start your own</button></div>' : "";
-}
 
 function viewIntake(){
   const i = state.intake;
   const sys = SYSTEMS.map(s=>'<label for="sys_'+s.id+'"><input type="checkbox" id="sys_'+s.id+'" data-sys="'+s.id+'"'+(i.systems.indexOf(s.id)!==-1?" checked":"")+'><span>'+esc(s.label)+(s.hint?'<small>'+esc(s.hint)+'</small>':"")+'</span></label>').join("");
   const n = activeTasks().length;
-  return '<section class="panel">'+exampleBanner()+
+  return '<section class="panel">'+
   '<div><h2>Who is leaving?</h2><p class="muted">Answer a few questions and the checklist builds itself with only the steps that apply.</p></div>'+
   orgField("off")+
   '<div class="grid2">'+
@@ -1505,7 +1509,7 @@ function holdBanner(){
 function viewList(){
   const list = activeTasks();
   const unplanned = state.intake.departure==="unplanned";
-  let html = '<section class="panel">'+exampleBanner()+
+  let html = '<section class="panel">'+
     '<div><h2>Checklist for '+esc(personLabel())+'</h2><p class="muted">Check each step when it is done. Mark a step as not needed if it does not apply.</p></div>';
   if(unplanned) html += '<div class="banner warn"><span><b>Unplanned exit.</b> Do the steps under Right away before or at the same time the person is told.</span></div>';
   if(hasReg(state.intake,"hold")) html += holdBanner();
@@ -1578,7 +1582,7 @@ function recordText(){
 /* ================= v1.8: records for HR and audits (mirrored in Click by Click Access, each with its own name and address) ================= */
 /* The organization name is optional and kept on each record. A record with no name of its own yet (null) uses the last name typed anywhere.
    The record number is made the first time it is needed and kept with the person, so saving the same person again keeps it. */
-const REC_APP = "Click by Click Offboarding", REC_SITE = "catherine-jason.github.io/click-by-click-offboarding", REC_VERSION = "1.9";
+const REC_APP = "Click by Click Offboarding", REC_SITE = "catherine-jason.github.io/click-by-click-offboarding", REC_VERSION = "1.10";
 const REC_DISCLAIMER = "This record shows the steps your organization marked as done. It is not a certification of compliance and does not replace advice from your IT, HR or legal team.";
 const REC_CODE = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ", REC_NO_RE = /^(ON|OFF)-\d{8}-[2-9A-HJ-NP-Z]{4}$/;
 function recIntake(flow){ return state.intake; }
@@ -1618,7 +1622,25 @@ function recTextEnd(flow){
 /* the date in the credit is the day it prints, even if the page was left open overnight */
 window.addEventListener("beforeprint", ()=>{ document.querySelectorAll(".credline").forEach(p=>{ p.textContent=recCredit(); }); });
 
-const TOP = (function(){ try{ return window.self === window.top }catch(e){ return false } })();
+/* ---------- v1.10: the demo ---------- */
+/* buttons that save or open a file are turned off in the demo, with a short note */
+const DEMO_OFF = ["pfSave","pfOpen","backup","restore","download","exportCSV","exportXLSX","importCSV","csvTemplate","xlsxTemplate","invImport","invCSV","invXLSX","onbDownload","onbCSV","onbXLSX","ics"];
+function demoLock(){
+  if(!DEMO) return;
+  document.querySelectorAll(DEMO_OFF.map(a=>'[data-act="'+a+'"]').join(",")).forEach(b=>{
+    b.disabled=true; b.title="Turned off in the demo";
+    const box=b.closest(".pfopen")||b.closest(".rowbtns,.dls")||b, next=box.nextElementSibling;
+    if(!next || !next.classList.contains("demonote")) box.insertAdjacentHTML("afterend",'<small class="muted demonote">This is the demo, so saving and opening files is turned off.</small>');
+  });
+}
+function demoStart(){
+  if(!DEMO) return;
+  document.querySelector(".wrap").insertAdjacentHTML("afterbegin",'<div class="banner demobanner" role="note"><span><b>This is a demo with sample data.</b> Nothing here is saved. <a href="./" target="_top">Open the tool</a> to start your own.</span></div>');
+  document.getElementById("lnkDemo").hidden=true; document.getElementById("btnClear").hidden=true;
+  document.title=document.title+" demo"; document.body.classList.add("demo");
+}
+
+const TOP = DEMO || (function(){ try{ return window.self === window.top }catch(e){ return false } })(); /* the demo shows its file buttons, turned off */
 
 function viewRecord(){
   const i = state.intake; const list = activeTasks(); const c = counts(list);
@@ -1651,7 +1673,7 @@ function viewRecord(){
   const openMsg = [];
   if(c.open) openMsg.push(c.open+' step'+(c.open===1?"":"s"));
   if(d.out) openMsg.push(d.out+' device'+(d.out===1?"":"s"));
-  return '<section class="panel">'+exampleBanner()+
+  return '<section class="panel">'+
   recTop("off")+'<div><h2>Offboarding record</h2><p class="muted">Proof that access was removed. Keep a copy with your HR or IT files.</p></div>'+
   (openMsg.length? '<div class="banner warn"><span><b>'+openMsg.join(" and ")+' still open.</b> Finish them or mark them as not needed before you save this record.</span><button class="btn" type="button" data-go="list">Go to checklist</button></div>' : '<div class="banner"><span><b>All steps are closed.</b> Access for this person has been removed.</span></div>')+
   (d.missing? '<div class="banner warn"><span><b>'+d.missing+' device'+(d.missing===1?" is":"s are")+' missing.</b> Make sure it is locked or wiped, and follow your policy for lost equipment.</span></div>' : "")+
@@ -1684,7 +1706,7 @@ function render(){
   document.querySelectorAll("nav.steps button").forEach(b=>{ if(b.dataset.step===state.step) b.setAttribute("aria-current","step"); else b.removeAttribute("aria-current"); });
   document.getElementById("learnMore").innerHTML = viewLearnMore();
   const lb=document.getElementById("btnLearn"); lb.setAttribute("aria-pressed", String(!!state.learn)); lb.textContent = "Learn mode: "+(state.learn?"On":"Off");
-  renderCard();
+  renderCard(); demoLock();
 }
 function go(step){ importMsg=""; state.step=step; save(); render(); window.scrollTo({top:0, behavior:"smooth"}); }
 
@@ -1756,7 +1778,6 @@ view.addEventListener("click",e=>{
   const g=e.target.closest("[data-go]"); if(g){ go(g.dataset.go); return; }
   const a=e.target.closest("[data-act]"); if(!a) return;
   const act=a.dataset.act;
-  if(act==="new"){ startNew(); return; }
   if(act==="copy"){ copyRecord(a); return; }
   if(act==="download"){ download(); return; }
   if(act==="print"){ window.print(); return; }
@@ -1881,7 +1902,6 @@ function clearComputer(){
     buttons:[{label:"Clear everything", kind:"warn", run:()=>{
       clearing=true;
       try{ Object.keys(localStorage).filter(k=>k.indexOf("cbc-offboarding")===0).forEach(k=>localStorage.removeItem(k)); }catch(e){}
-      try{ history.replaceState(null, "", location.pathname+location.search+"#cleared"); }catch(e){}
       location.reload();
     }}], back:"#btnClear"});
 }
@@ -1894,7 +1914,6 @@ function startNew(){
   const learn=state.learn, lastOrg=state.lastOrg; state=blank(); state.learn=learn; state.lastOrg=lastOrg; state.intake.lastDay=isoDate(new Date()); save(); render();
 }
 btnNew.addEventListener("click",startNew);
-document.getElementById("btnExample").addEventListener("click",()=>{ const learn=state.learn, lastOrg=state.lastOrg; state=example(); state.learn=learn; state.lastOrg=lastOrg; save(); render(); });
 /* Learn mode opens or closes every explanation, the glossary and the sources at once */
 document.getElementById("btnLearn").addEventListener("click",()=>{
   state.learn=!state.learn; learnOpen.clear(); learnClosed.clear(); save();
@@ -1907,6 +1926,28 @@ document.addEventListener("toggle",e=>{
   else { if(d.open) learnOpen.add(k); else learnOpen.delete(k); }
 }, true);
 
+
+/* ---------- v1.10: the example is no longer part of the app ---------- */
+/* Older versions saved the example person as the person's own work. An untouched one is dropped quietly. One that was typed over is kept, because it may hold real work. */
+function exPick(o, keys){ const r={}; keys.forEach(k=>{ r[k]=o? o[k] : null; }); return r; }
+function exSig(intake, keys, items, devices){
+  const it={}; Object.keys(items||{}).sort().forEach(k=>{ const s=items[k]||{}; it[k]=[s.status||"", s.note||""]; });
+  return JSON.stringify({i:exPick(intake, keys), it:it, d:(devices||[]).map(d=>[d.type, d.model, d.serial, d.os||"", d.enc||"", d.status||""])});
+}
+const EX_KEYS = ["role","type","departure","doneBy","admin","systems","other"];
+function dropOldExample(){
+  let changed=false;
+  if(state.example){
+    const ex=example();
+    if(exSig(state.intake, EX_KEYS, state.items, state.devices)===exSig(ex.intake, EX_KEYS, ex.items, ex.devices)){ const keep={learn:state.learn, lastOrg:state.lastOrg}; state=Object.assign(blank(), keep); }
+    else state.example=false;
+    changed=true;
+  }
+  if(changed) save();
+}
+function demoState(){ const s=example(); s.example=false; return s; }
+if(DEMO) state=demoState(); else dropOldExample();
+demoStart();
 render();
 })();
 </script>
