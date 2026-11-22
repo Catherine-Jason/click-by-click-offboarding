@@ -16,4 +16,8 @@ Everything runs in the browser. Nothing gets saved to a server.
 
 **Try it:** https://catherine-jason.github.io/click-by-click-offboarding/
 
+The official address is catherine-jason.github.io/click-by-click-offboarding.
+
+Found a security problem? Please report it privately, as [SECURITY.md](SECURITY.md) explains, not in a public issue.
+
 **Slides:** [Capstone presentation (PDF)](capstone-slides.pdf)

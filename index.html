@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-P2r7ng34HQezY8DcqzvkEIxFxI7pYQGgL1gwYvgOvhA='; style-src 'sha256-0/Do2Q5bosJH11ag1+Hmocw5GlsJxy6f5V5kLUK+Na4='; img-src 'self' data:; font-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#03060b">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -10,9 +11,17 @@
 <meta name="apple-mobile-web-app-title" content="Offboarding">
 <title>Click by Click Offboarding</title>
 <meta name="claude:viewport-fit-sides" content="cover">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
+/* v1.9: the fonts load from the site itself (fonts folder, SIL Open Font License), so the page contacts no other website. Latin and Latin Extended letters only, like before */
+@font-face{font-family:"IBM Plex Mono"; font-style:normal; font-weight:400; font-display:swap; src:url(fonts/ibm-plex-mono-400-latin.woff2) format("woff2"); unicode-range:U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD}
+@font-face{font-family:"IBM Plex Mono"; font-style:normal; font-weight:400; font-display:swap; src:url(fonts/ibm-plex-mono-400-latin-ext.woff2) format("woff2"); unicode-range:U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF}
+@font-face{font-family:"IBM Plex Mono"; font-style:normal; font-weight:500; font-display:swap; src:url(fonts/ibm-plex-mono-500-latin.woff2) format("woff2"); unicode-range:U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD}
+@font-face{font-family:"IBM Plex Mono"; font-style:normal; font-weight:500; font-display:swap; src:url(fonts/ibm-plex-mono-500-latin-ext.woff2) format("woff2"); unicode-range:U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF}
+@font-face{font-family:"IBM Plex Sans"; font-style:normal; font-weight:400 600; font-display:swap; src:url(fonts/ibm-plex-sans-latin.woff2) format("woff2"); unicode-range:U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD}
+@font-face{font-family:"IBM Plex Sans"; font-style:normal; font-weight:400 600; font-display:swap; src:url(fonts/ibm-plex-sans-latin-ext.woff2) format("woff2"); unicode-range:U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF}
+@font-face{font-family:"JetBrains Mono"; font-style:normal; font-weight:500 800; font-display:swap; src:url(fonts/jetbrains-mono-latin.woff2) format("woff2"); unicode-range:U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD}
+@font-face{font-family:"JetBrains Mono"; font-style:normal; font-weight:500 800; font-display:swap; src:url(fonts/jetbrains-mono-latin-ext.woff2) format("woff2"); unicode-range:U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF}
+.okmsg{color:var(--done)} .footlink{color:var(--accent)}
 /* Layout: one working column with a sticky access card on top; three steps in order: Intake, Checklist, Record */
 /* Single black terminal look on purpose: same in light and dark viewer themes */
 :root{
@@ -222,8 +231,14 @@ footer{font-size:12.5px; color:var(--muted); display:flex; flex-direction:column
 .rectop{display:flex; flex-wrap:wrap; gap:2px 20px; font-size:13.5px; color:var(--muted)} .rectop p{margin:0} .rectop b{color:var(--ink)}
 @media screen{ .printonly{display:none!important} }
 @page{ margin:0.6in 0.6in 0.75in; @bottom-center{ content:"Page " counter(page) " of " counter(pages); font-family:"IBM Plex Sans", Arial, sans-serif; font-size:9pt; color:#555 } }
+/* v1.9: the in page pop-up, the same as in Click by Click Access */
+dialog#modal{border:1px solid var(--line); border-radius:14px; background:var(--surface); color:var(--ink); padding:0; width:min(30em, calc(100vw - 32px)); max-width:none}
+dialog#modal::backdrop{background:rgba(0,0,0,.6)}
+.modalbox{padding:20px; display:flex; flex-direction:column; gap:12px}
+.modalbox h2{margin:0} .modalbox p{margin:0} #modalMsg{color:var(--done)} #modalMsg:empty{display:none}
 @media (prefers-reduced-motion:reduce){ *{transition:none!important} }
 @media print{
+  dialog{display:none!important}
   :root{--bg:#fff; --surface:#fff; --ink:#000; --muted:#444; --line:#bbb; --done:#0a5c7a; --done-soft:#fff; --warn:#8a5300; --warn-soft:#fff; --skip:#555; --accent:#0a5c7a; --accent-soft:#fff}
   body{background:#fff; background-image:none; color:#000}
   .card,nav.steps,header .actions,.rowbtns,footer,.banner,#learnMore{display:none!important}
@@ -249,6 +264,7 @@ footer{font-size:12.5px; color:var(--muted); display:flex; flex-direction:column
       <button class="btn" id="btnLearn" type="button" aria-pressed="false">Learn mode: Off</button>
       <button class="btn" id="btnExample" type="button">Load example</button>
       <button class="btn warn" id="btnNew" type="button">Start new</button>
+      <button class="btn" id="btnClear" type="button">Clear this computer</button>
     </div>
   </header>
 
@@ -271,7 +287,8 @@ footer{font-size:12.5px; color:var(--muted); display:flex; flex-direction:column
 
   <footer>
     <p><strong>Disclaimer:</strong> This tool is provided for educational purposes only. Its steps are aligned with, not compliant with, the NIST, CIS, HIPAA, PCI DSS and FERPA guidance it cites, and using it does not make your organization compliant. Laws vary by state and by the type of data you hold. Your answers stay in your browser and are never collected, stored or shared. It does not replace guidance from your organization's IT, HR or legal team.</p>
-    <p>&copy; 2026 Catherine Jason &middot; Click by Click Offboarding v1.8 &middot; <a href="https://www.catherinejason.com" target="_blank" rel="noopener" style="color: var(--accent);">catherinejason.com</a></p>
+    <p>&copy; 2026 Catherine Jason &middot; Click by Click Offboarding v1.9 &middot; <a class="footlink" href="https://www.catherinejason.com" target="_blank" rel="noopener">catherinejason.com</a></p>
+    <p>The official address is <a class="footlink" href="https://catherine-jason.github.io/click-by-click-offboarding/">catherine-jason.github.io/click-by-click-offboarding</a>.</p>
   </footer>
 </div>
 <textarea id="copyText" aria-hidden="true" tabindex="-1"></textarea>
@@ -1055,9 +1072,11 @@ function load(){ try{ const raw=localStorage.getItem(KEY); if(raw){ const s=JSON
   s.intake.org = typeof s.intake.org==="string"? s.intake.org.slice(0,200) : null; s.lastOrg = typeof s.lastOrg==="string"? s.lastOrg.slice(0,200) : "";
   s.intake.recNo = typeof s.intake.recNo==="string" && /^(ON|OFF)-\d{8}-[2-9A-HJ-NP-Z]{4}$/.test(s.intake.recNo)? s.intake.recNo : "";
   return s; } } }catch(e){} return null }
-function save(){ try{ localStorage.setItem(KEY, JSON.stringify(state)) }catch(e){} }
+function save(){ if(clearing) return; try{ localStorage.setItem(KEY, JSON.stringify(state)) }catch(e){} }
 
-let state = load() || example();
+/* after Clear this computer the app opens empty, not on the example (only when nothing is saved, so it can never hide work) */
+let state = load() || (location.hash==="#cleared"? blank() : example());
+if(location.hash==="#cleared"){ try{ history.replaceState(null, "", location.pathname+location.search); }catch(e){} }
 let confirmNew = false;
 let importMsg = "";
 const openMore = new Set(); /* devices whose "More details" is open, kept across redraws */
@@ -1419,7 +1438,7 @@ function viewDeviceInputs(){
     '<button class="btn" type="button" data-act="importCSV">Import from Excel (.csv or .xlsx)</button>'+
     (TOP? '<button class="linkbtn" type="button" data-act="csvTemplate">Download a blank template (.csv)</button><button class="linkbtn" type="button" data-act="xlsxTemplate">Download a blank template (.xlsx)</button>' : '')+'</div>'+
     '<small>In Excel, filter your inventory to this person\'s devices and save it as an Excel workbook (.xlsx). Rows hidden by the filter are left out. A CSV saves hidden rows too, so delete the rows you do not need before saving as CSV. It reads the first sheet, with the same columns as the blank template, plus common names like Hostname, User, Department and Warranty.</small>'+
-    (importMsg? '<small id="importMsg" role="status" style="color:var(--done)">'+esc(importMsg)+'</small>' : '')+'</div>';
+    (importMsg? '<small id="importMsg" role="status" class="okmsg">'+esc(importMsg)+'</small>' : '')+'</div>';
 }
 
 /* collapsible "More details" form, used on both the intake row and the check in card */
@@ -1559,7 +1578,7 @@ function recordText(){
 /* ================= v1.8: records for HR and audits (mirrored in Click by Click Access, each with its own name and address) ================= */
 /* The organization name is optional and kept on each record. A record with no name of its own yet (null) uses the last name typed anywhere.
    The record number is made the first time it is needed and kept with the person, so saving the same person again keeps it. */
-const REC_APP = "Click by Click Offboarding", REC_SITE = "catherine-jason.github.io/click-by-click-offboarding", REC_VERSION = "1.8";
+const REC_APP = "Click by Click Offboarding", REC_SITE = "catherine-jason.github.io/click-by-click-offboarding", REC_VERSION = "1.9";
 const REC_DISCLAIMER = "This record shows the steps your organization marked as done. It is not a certification of compliance and does not replace advice from your IT, HR or legal team.";
 const REC_CODE = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ", REC_NO_RE = /^(ON|OFF)-\d{8}-[2-9A-HJ-NP-Z]{4}$/;
 function recIntake(flow){ return state.intake; }
@@ -1803,6 +1822,70 @@ function download(){
   a.download="offboarding-record-"+(state.intake.lastDay||isoDate(new Date()))+".txt";
   document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(a.href); a.remove();},500);
 }
+
+/* ---------- v1.9: the in page pop-up (from Click by Click Access) and Clear this computer ---------- */
+let modalBack=null;
+function modalEl(){
+  let d=document.getElementById("modal");
+  if(!d){
+    d=document.createElement("dialog"); d.id="modal"; d.setAttribute("aria-labelledby","modalTitle"); d.setAttribute("aria-describedby","modalText");
+    document.body.appendChild(d);
+    d.addEventListener("cancel", e=>{ e.preventDefault(); closeModal(); });
+    d.addEventListener("click", e=>{
+      if(e.target===d){ closeModal(); return; } /* the dark area outside the box */
+      const b=e.target.closest("button[data-m]"); if(!b || !d.__btns) return;
+      const btn=d.__btns[+b.dataset.m];
+      if(btn.stay){ btn.run(); return; }
+      if(!btn.run){ closeModal(); return; } /* Cancel */
+      const back=modalBack; closeModal(true); btn.run();
+      if(!document.activeElement || document.activeElement===document.body) focusBack(back);
+    });
+    d.addEventListener("keydown", e=>{
+      if(e.key==="Escape"){ e.preventDefault(); closeModal(); return; }
+      if(e.key!=="Tab") return;
+      const f=Array.from(d.querySelectorAll("button:not([disabled]),input,select,textarea")).filter(x=>!x.hidden); if(!f.length) return;
+      const i=f.indexOf(document.activeElement);
+      if(e.shiftKey && i<=0){ e.preventDefault(); f[f.length-1].focus(); }
+      else if(!e.shiftKey && i===f.length-1){ e.preventDefault(); f[0].focus(); }
+    });
+  }
+  return d;
+}
+function askModal(o){
+  const d=modalEl();
+  if(d.open) closeModal(true);
+  modalBack={el:document.activeElement, sel:o.back||""};
+  d.__btns=o.buttons.concat([{label:"Cancel", kind:"", run:null}]);
+  d.innerHTML='<div class="modalbox"><h2 id="modalTitle">'+esc(o.title)+'</h2><p id="modalText">'+esc(o.text)+'</p>'+
+    '<small id="modalMsg" role="status"></small><div class="rowbtns">'+d.__btns.map((b,i)=>'<button class="btn'+(b.kind? " "+b.kind : "")+'" type="button" data-m="'+i+'">'+esc(b.label)+'</button>').join("")+'</div></div>';
+  if(typeof d.showModal==="function") d.showModal(); else d.setAttribute("open","");
+  const btns=d.querySelectorAll("button[data-m]"); (btns[o.focus||0]||btns[0]).focus();
+}
+function modalSay(text){ const m=document.getElementById("modalMsg"); if(m) m.textContent=text; }
+function closeModal(quiet){
+  const d=document.getElementById("modal"); if(!d || !d.open) return;
+  if(typeof d.close==="function") d.close(); else d.removeAttribute("open");
+  d.__btns=null;
+  const b=modalBack; modalBack=null; if(!quiet) focusBack(b);
+}
+function focusBack(b){
+  if(!b) return;
+  const el = b.el && b.el.isConnected? b.el : (b.sel? document.querySelector(b.sel) : null);
+  if(el && el.focus) el.focus({preventScroll:true});
+}
+/* ---------- v1.9: Clear this computer ---------- */
+/* removes everything this app saved in this browser (only its own keys, never other apps on the same address), then reloads to an empty app */
+let clearing = false;
+function clearComputer(){
+  askModal({title:"Clear everything this app saved on this computer?", text:"Save any files you need first.",
+    buttons:[{label:"Clear everything", kind:"warn", run:()=>{
+      clearing=true;
+      try{ Object.keys(localStorage).filter(k=>k.indexOf("cbc-offboarding")===0).forEach(k=>localStorage.removeItem(k)); }catch(e){}
+      try{ history.replaceState(null, "", location.pathname+location.search+"#cleared"); }catch(e){}
+      location.reload();
+    }}], back:"#btnClear"});
+}
+document.getElementById("btnClear").addEventListener("click", clearComputer);
 
 const btnNew=document.getElementById("btnNew");
 function startNew(){
