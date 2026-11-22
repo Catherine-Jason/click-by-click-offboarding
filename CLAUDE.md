@@ -18,7 +18,7 @@ Any change to those goes into both repos in the same session, as a separate comm
 Expected differences, which do not need mirroring:
 
 - Titles, taglines, footers and version numbers
-- localStorage keys: Offboarding uses `cbc-offboarding-v1`, Access uses `cbc-access-v1`. Both apps are on catherine-jason.github.io and share browser storage, so these must never match.
+- localStorage keys: Offboarding uses `cbc-offboarding-v1`, Access uses `cbc-access-v1`. Offboarding is live at https://catherine-jason.github.io/click-by-click-offboarding/ and Access at https://access.catherinejason.com, so they no longer share browser storage. Keep the keys different anyway, in case they ever end up on the same address again. These must never match.
 - Access says "your organization" where Offboarding says "nonprofit"
 - Features only in Access: the Onboarding tab, the Inventory tab, backup and restore, and the links between them. Do not add these here.
 
