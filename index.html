@@ -243,7 +243,7 @@ footer{font-size:12.5px; color:var(--muted); display:flex; flex-direction:column
 
   <footer>
     <p><strong>Disclaimer:</strong> This tool is provided for educational purposes only. Its steps are aligned with, not compliant with, the NIST, CIS, HIPAA, PCI DSS and FERPA guidance it cites, and using it does not make your organization compliant. Laws vary by state and by the type of data you hold. Your answers stay in your browser and are never collected, stored or shared. It does not replace guidance from your organization's IT, HR or legal team.</p>
-    <p>&copy; 2026 Catherine Jason &middot; Click by Click Offboarding v1.5 &middot; <a href="https://www.catherinejason.com" target="_blank" rel="noopener" style="color: var(--accent);">catherinejason.com</a></p>
+    <p>&copy; 2026 Catherine Jason &middot; Click by Click Offboarding v1.6 &middot; <a href="https://www.catherinejason.com" target="_blank" rel="noopener" style="color: var(--accent);">catherinejason.com</a></p>
   </footer>
 </div>
 <textarea id="copyText" aria-hidden="true" tabindex="-1"></textarea>
@@ -427,10 +427,18 @@ function setFromText(d,f,s){
 }
 function parseStatus(s){ s=(s||"").toLowerCase(); return /missing|lost|stolen/.test(s)? "missing" : /wiped|ready/.test(s)? "wiped" : /returned|received/.test(s)? "returned" : /still out|^out$/.test(s)? "out" : ""; }
 
-function importDevicesCSV(text){
-  const rows=parseCSV(text); if(rows.length<2) return 0;
-  const head=rows[0].map(h=>h.trim().toLowerCase());
-  const used=new Set();
+/* how many rows that repeat the header the last import skipped */
+let importHeaderSkips = 0;
+const headerSkipText = ()=> importHeaderSkips? " Skipped "+importHeaderSkips+" repeated header row"+(importHeaderSkips===1?"":"s")+"." : "";
+/* rows of text (from a CSV or an Excel file) into devices. The first row is the header.
+   A column whose header name already appeared to its left is a repeat and is ignored, and so is any later row that repeats the header. */
+function importDeviceRows(rows){
+  importHeaderSkips=0; if(rows.length<2) return 0;
+  const key=s=>String(s==null? "" : s).trim().toLowerCase().replace(/\s+/g," ");
+  const head=rows[0].map(key);
+  const used=new Set(), seen=new Set();
+  head.forEach((h,idx)=>{ if(!h) return; if(seen.has(h)) used.add(idx); else seen.add(h); });
+  const repeatsHeader=r=>{ let same=0; for(let i=0;i<r.length;i++){ const c=key(r[i]); if(!c) continue; if(c!==head[i]) return false; same++; } return same>=Math.min(2,seen.size); };
   /* try each pattern in order and skip columns already matched */
   const find=(...res)=>{ for(const re of res){ const k=head.findIndex((h,idx)=>!used.has(idx)&&re.test(h)); if(k>=0){ used.add(k); return k; } } return -1; };
   const col={}; IMPORT_ORDER.forEach(k=>{ col[k]=find(...fieldDef(k).re); });
@@ -446,7 +454,8 @@ function importDevicesCSV(text){
   if(iModel<0 && iSerial<0) return -1;
   let n=0;
   rows.slice(1).forEach(r=>{
-    const cell=i=>i>=0? (r[i]||"").trim() : "";
+    if(repeatsHeader(r)){ importHeaderSkips++; return; }
+    const cell=i=>i>=0? String(r[i]||"").trim() : "";
     const model=cell(iModel), serial=cell(iSerial);
     if(!model && !serial) return;
     const d=newDevice(guessType(cell(iType)||model));
@@ -491,14 +500,15 @@ function deviceRows(){
     csvDeviceCells(d).concat([devStatusLabel(d.status), xTime(d.at), personLabel(), xDate(i.lastDay)])));
 }
 function devicesCSV(){ return csvFrom(deviceRows()); }
-function templateCSV(){
+function templateRows(){
   const ex={"Type":"Laptop","OS":"Windows","OS version":"Windows 11 24H2","Device name or hostname":"NP-LT-0142","Make and model":"Dell Latitude 5440","Serial or asset tag":"NP-0142",
     "Condition":"Good","Assigned to":"Program assistant","Assigned by":"Office manager","Date assigned":"2025-03-03","Department or program":"Youth programs","Location":"Main office",
     "Encryption":"BitLocker: On","Last updated or patched":"2026-11-01","Update requested":"No","Managed in MDM":"Yes","Antivirus on":"Yes","Accessories returned":"Charger, Dock","Next step":"In storage",
     "Purchase date":"2024-01-15","Warranty end":"2027-01-15"};
-  const h=csvHeader();
-  return "﻿"+h.map(csvCell).join(",")+"\r\n"+h.map(c=>csvCell(ex[c]||"")).join(",")+"\r\n";
+  const h=csvHeader(), isDate=[false,false].concat(CSV_FIELD_ORDER.map(k=>k.charAt(0)!=="@" && fieldDef(k).kind==="date"));
+  return [h, h.map((c,i)=> isDate[i]? xDate(ex[c]||"") : (ex[c]||""))];
 }
+function templateCSV(){ return csvFrom(templateRows())+"\r\n"; }
 function saveFile(text, name, type){
   const blob=new Blob([text],{type:type});
   const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=name;
@@ -605,6 +615,114 @@ function xlsxFile(rows, sheetName){
     ["xl/worksheets/sheet1.xml", sheet],
     ["xl/styles.xml", styles]
   ]);
+}
+/* ---------- Excel (.xlsx) import ----------
+   Reads the first sheet of a workbook with the browser's own unzip (DecompressionStream) and XML reader, no outside libraries.
+   Every cell comes back as plain text. Formulas are never run (only the result Excel last saved is read), and dates become YYYY-MM-DD. */
+const XLSX_MAX_UNZIPPED = 50000000;
+const IMPORT_ACCEPT = ".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+function unzipIndex(u8){
+  const dv=new DataView(u8.buffer, u8.byteOffset, u8.byteLength), out={}, dec=new TextDecoder();
+  let e=-1; for(let i=u8.length-22; i>=Math.max(0,u8.length-65557); i--) if(dv.getUint32(i,true)===0x06054b50){ e=i; break; }
+  if(e<0) throw new Error("not a zip");
+  let p=dv.getUint32(e+16,true);
+  for(let k=dv.getUint16(e+10,true); k>0; k--){
+    if(p+46>u8.length || dv.getUint32(p,true)!==0x02014b50) throw new Error("bad zip");
+    const nl=dv.getUint16(p+28,true);
+    out[dec.decode(u8.subarray(p+46,p+46+nl))]={method:dv.getUint16(p+10,true), csize:dv.getUint32(p+20,true), size:dv.getUint32(p+24,true), offset:dv.getUint32(p+42,true)};
+    p+=46+nl+dv.getUint16(p+30,true)+dv.getUint16(p+32,true);
+  }
+  return out;
+}
+/* one file out of the zip as text; budget.left stops a small file that unzips to something huge */
+async function unzipText(u8, entry, budget){
+  const dv=new DataView(u8.buffer, u8.byteOffset, u8.byteLength), o=entry.offset;
+  if(o+30>u8.length || dv.getUint32(o,true)!==0x04034b50) throw new Error("bad zip");
+  const start=o+30+dv.getUint16(o+26,true)+dv.getUint16(o+28,true), raw=u8.subarray(start, start+entry.csize), chunks=[];
+  const spend=n=>{ budget.left-=n; if(budget.left<0) throw new Error("too big"); };
+  /* the zip says how big each file is when unzipped: refuse right away if that is over the limit, and still count while unzipping in case it lies */
+  if(entry.size>budget.left) throw new Error("too big");
+  if(entry.method===0){ spend(raw.length); chunks.push(raw); }
+  else if(entry.method===8){
+    const rd=new Blob([raw]).stream().pipeThrough(new DecompressionStream("deflate-raw")).getReader();
+    for(;;){ const r=await rd.read(); if(r.done) break; try{ spend(r.value.length); }catch(err){ rd.cancel(); throw err; } chunks.push(r.value); }
+  } else throw new Error("unsupported zip");
+  const dec=new TextDecoder(); let s=""; chunks.forEach(c=>{ s+=dec.decode(c,{stream:true}); });
+  return s+dec.decode();
+}
+function xmlDoc(s){ const d=new DOMParser().parseFromString(s,"application/xml"); if(d.getElementsByTagName("parsererror").length) throw new Error("bad xml"); return d; }
+const xmlTags=(n,name)=>Array.from(n.getElementsByTagNameNS("*",name));
+const xmlKids=(n,name)=>Array.from(n.children).filter(c=>c.localName===name);
+/* the text of a shared or inline string, leaving out phonetic reading hints */
+const runText=n=>xmlTags(n,"t").filter(t=>!t.parentNode || t.parentNode.localName!=="rPh").map(t=>t.textContent).join("");
+/* built-in date formats, or a custom format that shows days, months, years or time */
+function isDateFormat(id, code){
+  if((id>=14&&id<=22)||(id>=27&&id<=36)||(id>=45&&id<=47)||(id>=50&&id<=58)) return true;
+  return !!code && /[dmyhs]/i.test(code.replace(/"[^"]*"/g,"").replace(/\\./g,"").replace(/\[[^\]]*\]/g,""));
+}
+function serialToISO(v, d1904){
+  const n=parseFloat(v); if(!isFinite(n) || n<0 || n>2958465) return v;
+  const d=new Date((d1904? Date.UTC(1904,0,1) : Date.UTC(1899,11,30)) + Math.floor(n)*86400000);
+  return d.getUTCFullYear()+"-"+pad(d.getUTCMonth()+1)+"-"+pad(d.getUTCDate());
+}
+async function readXLSXRows(u8){
+  const z=unzipIndex(u8), budget={left:XLSX_MAX_UNZIPPED};
+  const get=async name=>z[name]? xmlDoc(await unzipText(u8, z[name], budget)) : null;
+  const book=await get("xl/workbook.xml"); if(!book) throw new Error("no workbook");
+  const d1904=xmlTags(book,"workbookPr").some(w=>/^(1|true)$/i.test(w.getAttribute("date1904")||""));
+  /* the first sheet in tab order */
+  let path="xl/worksheets/sheet1.xml";
+  const first=xmlTags(book,"sheet")[0], rels=await get("xl/_rels/workbook.xml.rels");
+  if(first && rels){
+    const id=first.getAttributeNS("http://schemas.openxmlformats.org/officeDocument/2006/relationships","id");
+    const r=xmlTags(rels,"Relationship").find(x=>x.getAttribute("Id")===id), t=r? r.getAttribute("Target")||"" : "";
+    if(t) path= t.charAt(0)==="/"? t.slice(1) : "xl/"+t.replace(/^\.\//,"");
+  }
+  const ss=await get("xl/sharedStrings.xml"), strings=ss? xmlTags(ss,"si").map(runText) : [];
+  const st=await get("xl/styles.xml"); let dateStyle=[];
+  if(st){
+    const fmts={}; xmlTags(st,"numFmt").forEach(f=>{ fmts[f.getAttribute("numFmtId")]=f.getAttribute("formatCode"); });
+    const xfs=xmlTags(st,"cellXfs")[0];
+    if(xfs) dateStyle=xmlKids(xfs,"xf").map(x=>{ const id=+x.getAttribute("numFmtId")||0; return isDateFormat(id, fmts[id]); });
+  }
+  const sheet=await get(path); if(!sheet) throw new Error("no sheet");
+  const rows=[];
+  /* when the sheet has a filter, rows it hides are left out, so "filter, then save as a workbook" brings in only what you see */
+  const filtered=xmlTags(sheet,"autoFilter").length>0;
+  xmlTags(sheet,"row").forEach(rw=>{
+    if(filtered && /^(1|true)$/i.test(rw.getAttribute("hidden")||"")) return;
+    const row=[]; let next=0;
+    xmlKids(rw,"c").forEach(c=>{
+      const m=/^([A-Z]{1,3})\d/.exec(c.getAttribute("r")||""); let ci=next;
+      if(m){ ci=0; for(const ch of m[1]) ci=ci*26+ch.charCodeAt(0)-64; ci--; }
+      next=ci+1; if(ci>16383) return;
+      const t=c.getAttribute("t")||"n", vEl=xmlKids(c,"v")[0], v=vEl? vEl.textContent : "", is=xmlKids(c,"is")[0];
+      row[ci] = t==="s"? (strings[+v]||"")
+        : t==="inlineStr"? (is? runText(is) : "")
+        : t==="b"? (v==="1"? "TRUE" : v==="0"? "FALSE" : v)
+        : (t==="n" && v!=="" && dateStyle[+c.getAttribute("s")||0])? serialToISO(v, d1904)
+        : v;   /* formula results, errors, ISO dates and plain numbers stay as written */
+    });
+    for(let i=0;i<row.length;i++) if(row[i]===undefined) row[i]="";
+    rows.push(row);
+  });
+  return rows.filter(r=>r.some(c=>c.trim()!==""));
+}
+/* reads a .csv or .xlsx file into rows of text, then calls done(rows), or fail(message) */
+function readImportFile(f, maxBytes, tooBig, done, fail){
+  if(f.size>maxBytes){ fail(tooBig); return; }
+  const rd=new FileReader();
+  rd.onerror=()=>fail("Could not read that file. Try saving it again.");
+  rd.onload=()=>{
+    const u8=new Uint8Array(rd.result);
+    if(u8[0]===0xD0 && u8[1]===0xCF && u8[2]===0x11 && u8[3]===0xE0){ fail("That is an older .xls file or a workbook with a password. In Excel use File, Save As, and pick Excel Workbook (.xlsx) or CSV with no password, then import that file."); return; }
+    const bad="Could not read that Excel file. Open it in Excel, save it again and try once more, or save it as CSV.";
+    if(u8[0]===0x50 && u8[1]===0x4B){ readXLSXRows(u8).then(done, err=>fail(err && err.message==="too big"? tooBig : bad)); return; }
+    /* named .xlsx but not a workbook inside */
+    if(/\.xlsx$/i.test(f.name)){ fail(bad); return; }
+    done(parseCSV(new TextDecoder().decode(u8)));
+  };
+  rd.readAsArrayBuffer(f);
 }
 
 function newDevice(type){ return Object.assign({id:"d"+Date.now().toString(36)+Math.random().toString(36).slice(2,6), type:type||"laptop", os:"other", enc:"unsure", model:"", serial:"", status:"out", at:null}, blankDetails()); }
@@ -1152,9 +1270,9 @@ function viewDeviceInputs(){
     '<small>List every organization device they have. You will check each one back in on the checklist.</small>'+
     '<div class="devlist">'+(rows || '<div class="devempty">No devices listed yet.</div>')+'</div>'+
     '<div class="rowbtns"><button class="btn" type="button" data-act="addDevice">Add device</button>'+
-    '<button class="btn" type="button" data-act="importCSV">Import from Excel (.csv)</button>'+
-    (TOP? '<button class="linkbtn" type="button" data-act="csvTemplate">Download a blank template</button>' : '')+'</div>'+
-    '<small>In Excel, filter your inventory to this person\'s devices, then use File, Save As, CSV. It reads the same columns as the blank template, plus common names like Hostname, User, Department and Warranty.</small>'+
+    '<button class="btn" type="button" data-act="importCSV">Import from Excel (.csv or .xlsx)</button>'+
+    (TOP? '<button class="linkbtn" type="button" data-act="csvTemplate">Download a blank template (.csv)</button><button class="linkbtn" type="button" data-act="xlsxTemplate">Download a blank template (.xlsx)</button>' : '')+'</div>'+
+    '<small>In Excel, filter your inventory to this person\'s devices and save it as an Excel workbook (.xlsx). Rows hidden by the filter are left out. A CSV saves hidden rows too, so delete the rows you do not need before saving as CSV. It reads the first sheet, with the same columns as the blank template, plus common names like Hostname, User, Department and Warranty.</small>'+
     (importMsg? '<small id="importMsg" role="status" style="color:var(--done)">'+esc(importMsg)+'</small>' : '')+'</div>';
 }
 
@@ -1442,20 +1560,17 @@ view.addEventListener("click",e=>{
   if(act==="exportCSV"){ saveFile(devicesCSV(), "device-checkin-"+(state.intake.lastDay||isoDate(new Date()))+".csv", "text/csv;charset=utf-8"); return; }
   if(act==="exportXLSX"){ saveFile(xlsxFile(deviceRows(),"Devices"), "device-checkin-"+(state.intake.lastDay||isoDate(new Date()))+".xlsx", XLSX_TYPE); return; }
   if(act==="csvTemplate"){ saveFile(templateCSV(), "device-inventory-template.csv", "text/csv;charset=utf-8"); return; }
+  if(act==="xlsxTemplate"){ saveFile(xlsxFile(templateRows(),"Devices"), "device-inventory-template.xlsx", XLSX_TYPE); return; }
   if(act==="importCSV"){
-    const fi=document.createElement("input"); fi.type="file"; fi.accept=".csv,text/csv";
+    const fi=document.createElement("input"); fi.type="file"; fi.accept=IMPORT_ACCEPT;
     fi.addEventListener("change",()=>{
       const f=fi.files&&fi.files[0]; if(!f) return;
-      if(/\.xlsx?$/i.test(f.name)){ importMsg="That is an Excel workbook. In Excel use File, Save As, and pick CSV, then import that file."; render(); return; }
-      if(f.size>2000000){ importMsg="That file is too big for one person's devices. Filter it in Excel first."; render(); return; }
-      const rd=new FileReader();
-      rd.onload=()=>{
-        const n=importDevicesCSV(String(rd.result||""));
-        importMsg = n>0 ? "Imported "+n+" device"+(n===1?"":"s")+". Check them and remove any that are not theirs." : n<0 ? "Could not find a make and model or serial column. Try the blank template." : "No devices found in that file.";
+      const show=m=>{ importMsg=m; const y=window.scrollY; render(); window.scrollTo(0,y); };
+      readImportFile(f, 2000000, "That file is too big for one person's devices. Filter it in Excel first.", rows=>{
+        const n=importDeviceRows(rows);
         if(n>0){ state.example=false; save(); }
-        const y=window.scrollY; render(); window.scrollTo(0,y);
-      };
-      rd.readAsText(f);
+        show((n>0 ? "Imported "+n+" device"+(n===1?"":"s")+". Check them and remove any that are not theirs." : n<0 ? "Could not find a make and model or serial column. Try the blank template." : "No devices found in that file.")+headerSkipText());
+      }, show);
     });
     fi.click(); return;
   }
